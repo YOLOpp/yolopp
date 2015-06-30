@@ -1,0 +1,5 @@
+- `<->` swaps left and right operands (left-associative)
+- `<~>` swaps left and right operands (right-associative)
+- `<->` and `<~>` have equal precedence
+- `[...]` is an asynchronous block
+- `{...}` is a synchronous block
