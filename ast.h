@@ -6,14 +6,14 @@ using namespace std;
 
 typedef int ast_type_t;
 
-class AST {
+class AST{
 	ast_type_t type;
 	vector<AST*> children;
-	string ext;
-	AST( const string& s );
-	void create( const string& s, int a, int b );
+	string val;
+	AST(const Tokens&);
+	string translate(void);
 };
 
-class Tokens: public vector<string> {
-	Tokens( const string& );
+class Tokens: public vector<string>{
+	Tokens(const string&);
 };
