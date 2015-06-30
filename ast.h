@@ -4,7 +4,18 @@
 
 using namespace std;
 
-typedef int ast_type_t;
+enum ast_type_t{
+	AT_ASSIGNMENT,
+	AT_FUNCTIONCALL,
+	AT_CONDITIONAL,
+	AT_LOOP,
+	AT_EXPR,
+	AT_ARRAY,
+	//AT_SET,
+	//AT_LIST,
+	AT_SYNCBLOCK,
+	AT_ASYNCBLOCK
+};
 
 class AST{
 	ast_type_t type;
