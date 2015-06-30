@@ -19,6 +19,12 @@ enum ast_type_t{
 	AT_FUNCTIONDEF //function name, return value, AT_ARRAY of arguments, body block (AT_(A)SYNCBLOCK)
 };
 
+enum associativity {
+	LEFT=false,
+	RIGHT=true
+};
+
+
 class Tokens : public vector<string> {
 public:
 	Tokens(const string&);
