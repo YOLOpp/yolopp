@@ -10,7 +10,8 @@ enum ast_type_t{
 	AT_LOOP, //loop var, from, to, block
 	AT_EXPR, //val gives the node string; it's an operator
 	AT_WORD, //variable
-	AT_NUMBER, //number - shit
+	AT_NUMBER, //number
+	AT_STRING, //string
 	AT_ARRAY, //children are members
 	//AT_SET,
 	//AT_LIST,
