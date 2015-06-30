@@ -40,9 +40,8 @@ Obscure things
  	- *
  	- /
  	- ^ (exponentiation) (on array: number of times after each other)
- 	- ! (postfix; factorial) (on array: item product)
  	- &&
  	- ||
  	- ^^
  	- ? (on array/string: prefix, shuffle)
- 	- ! (on array/string: prefix, sort) (but what if used as prefix not? ##TODO)
+ 	- ! (on array/string: prefix, sort) (##TODO but what if used as prefix not?)
