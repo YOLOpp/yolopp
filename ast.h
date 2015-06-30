@@ -5,7 +5,6 @@
 using namespace std;
 
 enum ast_type_t{
-	AT_ASSIGNMENT,
 	AT_FUNCTIONCALL,
 	AT_CONDITIONAL,
 	AT_LOOP,
