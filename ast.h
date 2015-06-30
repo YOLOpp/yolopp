@@ -18,10 +18,10 @@ enum ast_type_t{
 	AT_FUNCTIONDEF
 };
 
-class Tokens: public vector<string> {
+class Tokens : public vector<string> {
 public:
 	Tokens(const string&);
-	Tokens() = default;
+	Tokens()=default;
 };
 
 class AST{
@@ -30,5 +30,6 @@ class AST{
 	string val;
 public:
 	AST(const Tokens&);
+	~AST(void);
 	string translate(void);
 };
