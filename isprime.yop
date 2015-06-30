@@ -1,0 +1,17 @@
+
+
+
+function int isprime( int x ) {
+	for i in range( 0, ceil( x^(1/2) ) ) [
+		if( x%i == 0 ) {
+			return false
+		}
+	]
+	return true
+}
+
+if( isprime( x ) == true ) {
+	print( "prime!" )
+} else {
+	print( "not prime" )
+}
