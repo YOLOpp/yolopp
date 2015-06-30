@@ -10,7 +10,7 @@ Obscure things
 - `(...)` is normal arithmetical expression grouping
 - fractional (aka `frac`) datatype instead of floats
 - all ints are bigints
-- ***?*** all numbers are complex
+- complex is a type prefix that is kind-of similar to array(2), except that multiplications use the complex conventions
 - nested arrays are taken as matrices where the innermost array is taken as vertical. Example:
 
 		[[1,2],[3,4]]*[5,6] =
@@ -35,15 +35,14 @@ Obscure things
 - array arithmetic is supported, mostly vector operations. (##TODO more docs)
 
  - arithmetical operators:
- 	- + (on bitset: xor)
+ 	- +
  	- -
- 	- * (on bitset: and)
+ 	- *
  	- /
  	- ^ (exponentiation) (on array: number of times after each other)
  	- ! (postfix; factorial) (on array: item product)
  	- &&
  	- ||
  	- ^^
- 	- | (only on bitset)
  	- ? (on array/string: prefix, shuffle)
  	- ! (on array/string: prefix, sort) (but what if used as prefix not? ##TODO)
