@@ -14,7 +14,8 @@ enum ast_type_t{
 	//AT_SET,
 	//AT_LIST,
 	AT_SYNCBLOCK,
-	AT_ASYNCBLOCK
+	AT_ASYNCBLOCK,
+	AT_FUNCTIONDEF
 };
 
 class AST{
