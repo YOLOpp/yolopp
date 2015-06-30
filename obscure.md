@@ -21,12 +21,12 @@ Obscure things
 		= [23,34]
 
 - string arithmetic is supported:
-	- "yolo++y"+1="olo++yy"
-	- "yolo++y"+2="lo++yyo"
-	- "yolo++y"-2="+yyolo+"
-	- "yolo++y"*2="yolo++yyolo++y"
-	- "yolo++y"*2.5="yolo++yyolo++yyolo"
-	- "yolo++y"*2.2="yolo++yyolo++yy" (length of string a = 7, so 2.2*7=15.4, rounded 15)
-	- "yolo++y"/2="yolo++y"*(1/2)="yolo"
-	- "yolo++y"+"y++oloy"="yolo++++oloy" (string concatenation)
-	- "yolo++y"-"y++oloy"="yolo" (loop backwards over string b, deleting each character from string a until the beginning of a is reached)
+	- `"yolo++y"+1="olo++yy"`
+	- `"yolo++y"+2="lo++yyo"`
+	- `"yolo++y"-2="+yyolo+"`
+	- `"yolo++y"*2="yolo++yyolo++y"`
+	- `"yolo++y"*2.5="yolo++yyolo++yyolo"`
+	- `"yolo++y"*2.2="yolo++yyolo++yy"` (length of string a = 7, so 2.2*7=15.4, rounded 15)
+	- `"yolo++y"/2="yolo++y"*(1/2)="yolo"`
+	- `"yolo++y"+"y++oloy"="yolo++++oloy"` (string concatenation)
+	- `"yolo++y"-"y++oloy"="yolo"` (loop backwards over string b, deleting each character from string a until the beginning of a is reached)
