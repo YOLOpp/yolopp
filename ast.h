@@ -20,13 +20,32 @@ enum ast_type_t{
 	AT_FUNCTIONDEF //function name, return value, AT_ARRAY of arguments, body block (AT_(A)SYNCBLOCK)
 };
 
+enum token_type {
+	LEFT_BRACKET,
+	RIGHT_BRACKET,
+	INTEGER,
+	FLOAT,
+	STRING,
+	OPERATOR,
+	KEYWORD,
+	TYPENAME,
+	FUNCTION,
+	VARIABLE,
+	COMMA
+};
+
 enum associativity {
 	LEFT=false,
 	RIGHT=true
 };
 
+struct Token : public string {
+	token_type type;
+	string& str() { return *this; }
+	const string& str() const { return *this; }
+};
 
-class Tokens : public vector<string> {
+class Tokens : public vector<Token> {
 public:
 	Tokens(const string&);
 	Tokens()=default;
