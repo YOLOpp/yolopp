@@ -17,7 +17,8 @@ enum ast_type_t{
 	//AT_LIST,
 	AT_SYNCBLOCK, //children are the lines/statements of the block
 	AT_ASYNCBLOCK, //children are the lines/statements of the block
-	AT_FUNCTIONDEF //function name, return value, AT_ARRAY of arguments, body block (AT_(A)SYNCBLOCK)
+	AT_FUNCTIONDEF, //function name, return value, AT_ARRAY of arguments, body block (AT_(A)SYNCBLOCK)
+	AT_VARIABLEDEF, //variable name, type
 };
 
 enum token_type {

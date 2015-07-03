@@ -35,11 +35,13 @@ map<string, int> keywords {
 	{ "break", -1 },
 	{ "continue", 0 },
 	{ "function", 3 },
+	{ "return", 1 },
 	{ "array-init", INT_MIN }
 };
 
 // name, parameters, is prefix
 map<string, pair<int, bool> > datatypes {
+	{ "null", make_pair(0,false) }, // for functions returning nothing
 	{ "int", make_pair(-1, false) },
 	{ "string", make_pair(0, false) },
 	{ "frac", make_pair(-1, false) },
@@ -251,7 +253,7 @@ int bracketIterator( const Tokens& tokens, int i, int n ) {
 		cerr << "Internal Error: '" << tokens[i] << "' is not a left-parenthesis!" << endl;
 		throw; 
 	}
-	return i;
+	return i; // return index past closing bracket
 }
 
 int resolveTypename( const Tokens& tokens, int i, int n ) {
@@ -262,7 +264,7 @@ int resolveTypename( const Tokens& tokens, int i, int n ) {
 			throw;
 		}
 		if( datatypes.find( tokens[i].str() ) != datatypes.end() ) {
-			if( datatypes[tokens[i].str()].second == false )
+			if( datatypes[tokens[i].str()].second.second == false )
 				isFinal = true;
 		} else {
 			cerr << "Error: Unknown datatype '" << tokens[i] << "'!" << endl;
@@ -274,10 +276,107 @@ int resolveTypename( const Tokens& tokens, int i, int n ) {
 		cerr << "Error: Expected datatype!" << endl;
 		throw;
 	}
-	return i;
+	return i - 1; // return index past last datatype specifier
 }
 
-AST* scotlandYard( const Tokens& tokens, int i = 0, int n = -1 ) {
+vector<AST*> junkYard( const Tokens& tokens, int i, int n ) { // converts statement tokens to AST using shuntingYard
+
+}
+
+
+vector<AST*> graveYard( const Tokens& tokens, int i, int n ) { // applies junkYard to multiple statements seperated by commas
+	vector<AST*> r;
+	AST* temp = nullptr;
+	int j = i;
+	while( j < n ) {
+		while( tokens[j].type != COMMA && j < n )
+			j++;
+		junkYard( tokens, i, j );
+		i = j;
+	}
+}
+
+vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
+	vector<AST*> r;
+	AST *a = nullptr, *b = nullptr;
+	int j, k, l, m;
+	while(true) {
+		switch( tokens[i].type ) {
+			case KEYWORD:
+				if( tokens[i].str() == "function" ) {
+					j = resolveTypename( tokens, i + 1, n );
+					if( j < n && tokens[j].type == FUNCTION ) {
+						k = bracketIterator( tokens, j+1, n );
+						m = j + 2;
+						b = new AST( AT_ARRAY );
+						while( m < k ) {
+							if( tokens[m].type == TYPENAME ) {
+								l = resolveTypename( tokens, m, k - 1 );
+								if( l + 1 < n && tokens[l].type == VARIABLE && ( tokens[l+1].type == COMMA || tokens[l+1].type == RIGHT_BRACKET ) {
+									b.children.push( AST( AT_VARIABLEDEF, "" /*type-name*/, { new AST( AT_WORD, tokens[l].str() ) } ) );
+									m = l;
+								} else {
+									cerr << "Error: Variable name required!" << endl;
+									throw;
+								}
+							} else {
+								cerr << "Error: Expected typename in function definition!" << endl;
+								throw; 
+							}
+						}
+						l = bracketIterator( tokens, k, n );
+						if( tokens[j+1].str() == "(" && ( tokens[k].str() == "{" || tokens[k].str() == "[" ) ) {
+					 		a = new AST( AT_FUNCTIONDEF, tokens[j].str(), { nullptr /*return-type*/, b /*parameters*/, 
+					 				new AST( tokens[i].str() == "{" ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", scotlandYard( tokens, k+1, l - 2 ) ) } );
+						} else {
+							cerr << "Error: Unexpected parenthesis-type near function definition!" << endl;
+							throw;
+						}
+					} else {
+						cerr << "Error: Expected function name!" << endl;
+						throw;
+					}
+				} else if( tokens[i].str() == "if" ) {
+					if( i+1 < n && tokens[i+1].type == LEFT_BRACKET && tokens[i+1].str() == "(" ) {
+						j = bracketIterator( tokens, i+1, n );
+						junkYard( tokens, i+1, j-1 );
+						if( j < n ) {
+							if( tokens[j].type == LEFT_BRACKET && ( tokens[j].str() == "[" || tokens[j].str() == "{" ) ) {
+								a = new AST( AT_CONDITIONAL, "", { nullptr /*condition*/, 
+										new AST( tokens[i].str() == "{" ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", scotlandYard( tokens, k+1, l - 2 ) ) } );
+							} else {
+								cerr << "Error: Brackets after if-statement are required!" << endl;
+								throw;
+							}
+						} else {
+							cerr << "Error: Empty if-statement!" << endl;
+							throw;
+						}
+					} else {
+						cerr << "Error: Expected conditional after if-statement!" << endl;
+						throw;
+					}
+				}
+				break;
+			case LEFT_BRACKET:
+				if( tokens[i].str() == "{" || tokens[i].str() == "[" ) {
+			 		a = new AST( tokens[i].str() == "{" ? AT_SYNCBLOCK : AT_ASYNCBLOCK );
+					j = bracketIterator( tokens, i, n );
+			 		a->children = scotlandYard( tokens, i, j - 1 );
+					i = j;
+				} else {
+					cerr << "Error: Unexpected '" << tokens[i] << "'!" << endl;
+					throw;
+				}
+				break;
+
+		}
+		r.push_back (a );
+	}
+	return r;
+}
+
+/*AST* scotlandYard( const Tokens& tokens, int i = 0, int n = -1 ) {
 	int brackets;
 	int j, k;
 	if( n == -1 )
@@ -295,7 +394,7 @@ AST* scotlandYard( const Tokens& tokens, int i = 0, int n = -1 ) {
 		} else if( tokens[i].str() == "function" ) {
 			j = resolveTypename( tokens, i+1, n );
 			if( tokens[j].type == FUNCTION ) {
-				k = bracketIterator( tokens, j+1, n );
+				k = bracketIterator( tokens, j+1, n )
 				scotlandYard( tokens, k, n );
 			} else {
 				cerr << "Error: Expected function name!" << endl;
@@ -311,9 +410,9 @@ AST* scotlandYard( const Tokens& tokens, int i = 0, int n = -1 ) {
 				brackets--;
 		}
 	} else {
-		throw;
+		
 	}
-}
+}*/
 
 Tokens shuntingYard( const Tokens& tokens ) {
 	stack<Token> operator_stack;
@@ -498,7 +597,8 @@ Tokens shuntingYard( const Tokens& tokens ) {
 
 int main() {
 	//string s = "yolo = x <-> y / 5.0 * f(3,\"6\")";
-	string s = "yolo = <4,5,6>*9";
+	//string s = "yolo = <4,5,6>*9";
+	string s = "function complex int conj( complex int z ) [  ]"
 	Tokens t(s);
 	for( auto& i : t )
 		cout << i << " " << int(i.type) << "#";
