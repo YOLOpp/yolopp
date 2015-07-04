@@ -5,6 +5,7 @@
 #include <map>
 #include <tuple>
 #include <climits>
+#include <sstream>
 
 #include "ast.h"
 
@@ -256,16 +257,39 @@ int bracketIterator( const Tokens& tokens, int i, int n ) {
 	return i; // return index past closing bracket
 }
 
-int resolveTypename( const Tokens& tokens, int i, int n ) {
+int commaIterator( const Tokens& tokens, int i , int n ) {
+	int brackets = 0;
+	while( i < n ) {
+		if( tokens[i].type == LEFT_BRACKET )
+			brackets++;
+		else if( tokens[i].type == RIGHT_BRACKET ) {
+			brackets--;
+			if( brackets < 0 )
+				return -1;
+		} else if( tokens[i].type == COMMA )
+			return i;
+		i++;
+	}
+	return -1;
+}
+
+int resolveTypename( const Tokens& tokens, AST*& typename_result, int i, int n ) { // does not support datatype parameters yet
 	bool isFinal = false;
+	typename_result = new AST( AT_DATATYPE );
+	AST* head = typename_result;
 	while( i < n && tokens[i].type == TYPENAME ) {
 		if( isFinal ) {
 			cerr << "Error: Not expecting '" << tokens[i] << "'!" << endl;
 			throw;
 		}
 		if( datatypes.find( tokens[i].str() ) != datatypes.end() ) {
-			if( datatypes[tokens[i].str()].second.second == false )
+			head->val = tokens[i];
+			if( datatypes[tokens[i].str()].second == false ) {
 				isFinal = true;
+			} else {
+				head->children.push_back( new AST( AT_DATATYPE ) );
+				head = head->children.back();
+			}
 		} else {
 			cerr << "Error: Unknown datatype '" << tokens[i] << "'!" << endl;
 			throw;
@@ -276,13 +300,70 @@ int resolveTypename( const Tokens& tokens, int i, int n ) {
 		cerr << "Error: Expected datatype!" << endl;
 		throw;
 	}
-	return i - 1; // return index past last datatype specifier
+	return i; // return index past last datatype specifier
 }
 
-vector<AST*> junkYard( const Tokens& tokens, int i, int n ) { // converts statement tokens to AST using shuntingYard
-
+AST* loopYard( const Tokens& postfix, int& n ) {
+	AST* h = new AST;
+	int parameters;
+	stack<AST*> reverse;
+	n--;
+	if( n < 0 ) {
+		cerr << "Error: You done goofed!" << endl;
+		throw;
+	}
+	switch( postfix[n].type ) { /*KEYWORDS NOT YET SUPPORTED*/
+		case OPERATOR:
+			if( get<2>( operator_precedence[postfix[n].str()] ) == true ) // is unary
+				parameters = 1;
+			else
+				parameters = 2;
+			h->val = "operator" + postfix[n]; // temporary
+			h->type = AT_FUNCTIONCALL;
+			break;
+		case FUNCTION: {
+			stringstream ss( postfix[n].str(), ios_base::in );
+			ss >> (h->val) >> parameters;
+			h->type = AT_FUNCTIONCALL;
+			break;
+		}
+		case INTEGER:
+		case FLOAT:
+			h->type = AT_NUMBER;
+			h->val = postfix[n];
+			parameters = 0;
+			break;
+		case STRING:
+			h->type = AT_STRING;
+			h->val = postfix[n];
+			parameters = 0;
+			break;
+		case VARIABLE:
+			h->type = AT_WORD;
+			h->val = postfix[n];
+			parameters = 0;
+			break;
+		default:
+			cerr << "Internal Error: Unknown/Unsupported token type!" << endl;
+			throw;
+			h = nullptr;
+	}
+	for( int i = 0; i < parameters; i++ )
+		reverse.push( loopYard( postfix, n ) );
+	while( !reverse.empty() ) {
+		h->children.push_back( reverse.top() );
+		reverse.pop();
+	}
+	return h;
 }
 
+AST* junkYard( const Tokens& tokens, int i, int n ) { // converts statement tokens to AST using shuntingYard
+	Tokens postfix = shuntingYard( tokens, i, n );
+	/*for( const auto& X : postfix)
+		cerr << X << "/";*/
+	int k = postfix.size();
+	return loopYard( postfix, k );
+}
 
 vector<AST*> graveYard( const Tokens& tokens, int i, int n ) { // applies junkYard to multiple statements seperated by commas
 	vector<AST*> r;
@@ -298,25 +379,25 @@ vector<AST*> graveYard( const Tokens& tokens, int i, int n ) { // applies junkYa
 
 vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 	vector<AST*> r;
-	AST *a = nullptr, *b = nullptr;
+	AST *a = nullptr, *b = nullptr, *c = nullptr, *d = nullptr;
 	int j, k, l, m;
-	while(true) {
+	while( i < n ) {
 		switch( tokens[i].type ) {
 			case KEYWORD:
 				if( tokens[i].str() == "function" ) {
-					j = resolveTypename( tokens, i + 1, n );
+					j = resolveTypename( tokens, d, i + 1, n );
 					if( j < n && tokens[j].type == FUNCTION ) {
 						k = bracketIterator( tokens, j+1, n );
 						m = j + 2;
 						b = new AST( AT_ARRAY );
 						while( m < k ) {
 							if( tokens[m].type == TYPENAME ) {
-								l = resolveTypename( tokens, m, k - 1 );
-								if( l + 1 < n && tokens[l].type == VARIABLE && ( tokens[l+1].type == COMMA || tokens[l+1].type == RIGHT_BRACKET ) {
-									b.children.push( AST( AT_VARIABLEDEF, "" /*type-name*/, { new AST( AT_WORD, tokens[l].str() ) } ) );
-									m = l;
+								l = resolveTypename( tokens, c, m, k - 1 );
+								if( l + 1 < n && tokens[l].type == VARIABLE && ( tokens[l+1].type == COMMA || tokens[l+1].type == RIGHT_BRACKET ) ) {
+									b->children.push_back( new AST( AT_VARIABLEDEF, tokens[l].str() /*variable-name*/, { c /*data-type*/} ) );
+									m = l+2;
 								} else {
-									cerr << "Error: Variable name required!" << endl;
+									cerr << "Error: Variable name required in function definition!" << endl;
 									throw;
 								}
 							} else {
@@ -326,8 +407,9 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 						}
 						l = bracketIterator( tokens, k, n );
 						if( tokens[j+1].str() == "(" && ( tokens[k].str() == "{" || tokens[k].str() == "[" ) ) {
-					 		a = new AST( AT_FUNCTIONDEF, tokens[j].str(), { nullptr /*return-type*/, b /*parameters*/, 
-					 				new AST( tokens[i].str() == "{" ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", scotlandYard( tokens, k+1, l - 2 ) ) } );
+					 		a = new AST( AT_FUNCTIONDEF, tokens[j].str(), { d /*return-type*/, b /*parameters*/, 
+					 				new AST( tokens[i].str() == "{" ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", scotlandYard( tokens, k+1, l - 1 ) ) } );
+					 		i = l + 1;
 						} else {
 							cerr << "Error: Unexpected parenthesis-type near function definition!" << endl;
 							throw;
@@ -336,7 +418,7 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 						cerr << "Error: Expected function name!" << endl;
 						throw;
 					}
-				} else if( tokens[i].str() == "if" ) {
+				} else if( tokens[i].str() == "if" ) { // work in progress
 					if( i+1 < n && tokens[i+1].type == LEFT_BRACKET && tokens[i+1].str() == "(" ) {
 						j = bracketIterator( tokens, i+1, n );
 						junkYard( tokens, i+1, j-1 );
@@ -356,6 +438,17 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 						cerr << "Error: Expected conditional after if-statement!" << endl;
 						throw;
 					}
+				} else if( tokens[i].str() == "return" ) {
+					if( i + 1 < n && tokens[i+1].type != COMMA ) {
+						l = commaIterator( tokens, i + 1, n );
+						if( l == -1 )
+							l = n;
+						a = new AST( AT_FLOW, "return", { junkYard( tokens, i + 1, l ) } );
+						i = l;
+					} else {
+						cerr << "Error: Empty return statement!" << endl;
+						throw;
+					}
 				}
 				break;
 			case LEFT_BRACKET:
@@ -364,14 +457,52 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 					j = bracketIterator( tokens, i, n );
 			 		a->children = scotlandYard( tokens, i, j - 1 );
 					i = j;
-				} else {
+					break;
+				} else if(  tokens[i].str() == "<" ) {
 					cerr << "Error: Unexpected '" << tokens[i] << "'!" << endl;
 					throw;
 				}
-				break;
-
+			case VARIABLE: case INTEGER: case FLOAT: case STRING: case FUNCTION:
+				k = commaIterator( tokens, i, n );
+				if( k == -1 )
+					k = n;
+				a = junkYard( tokens, i, k );
+				i = k;
+			break;
+			case TYPENAME:
+				k = resolveTypename( tokens, b, i, n );
+				if( k < n && tokens[k].type == VARIABLE ) {
+					c = new AST( AT_VARIABLEDEF, tokens[k].str(), { b } );
+					if( k + 1 < n ) {
+						if( tokens[k+1] == "=" ) {
+							l = commaIterator( tokens, k, n );
+							if( l == -1 )
+								l = n;
+							a = junkYard( tokens, k, l );
+							r.push_back( c );
+							i = l;
+						} else if( tokens[k+1].type == COMMA ) {
+							a = c;
+							i = k + 1;
+						} else {
+							cerr << "Error: Unexpected '" << tokens[k+1].str() << "' in variable definition!" << endl;
+							throw;
+						}
+					}
+				} else {
+					cerr << "Error: Expected variable name after datatype specifier!" << endl;
+					throw;
+				}
+			break;
 		}
-		r.push_back (a );
+		r.push_back( a );
+		if( i < n ) {
+			if( tokens[i].type != COMMA ) {
+				cerr << "Error: Expected comma!" << endl;
+				throw;
+			} else
+				i++;
+		}
 	}
 	return r;
 }
@@ -414,11 +545,12 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 	}
 }*/
 
-Tokens shuntingYard( const Tokens& tokens ) {
+Tokens shuntingYard( const Tokens& tokens, int i, int n ) {
 	stack<Token> operator_stack;
 	stack<int> comma_stack;
 	Tokens output;
-	for( const Token& token : tokens ) {
+	for( Tokens::const_iterator t = tokens.begin() + i; t != ( tokens.begin() + n ); t++ ) {
+		const Token& token = *t;
 		if( !operator_stack.empty() && operator_stack.top().type == LEFT_BRACKET && comma_stack.top() == 0 && token.type != RIGHT_BRACKET )
 			comma_stack.top() = 1;
 		if( token.type == INTEGER || token.type == FLOAT || token.type == STRING || token.type == VARIABLE )
@@ -593,17 +725,47 @@ Tokens shuntingYard( const Tokens& tokens ) {
 	return output;
 }*/
 
+AST::AST( ast_type_t t ) {
+	type = t;
+}
 
+AST::AST( ast_type_t t, string v, vector<AST*> c ) {
+	type = t;
+	val = move( v );
+	children = move( c );
+}
+
+AST::AST( const Tokens& tokens ) {
+	type = AT_ASYNCBLOCK;
+	children = scotlandYard( tokens, 0, tokens.size() );
+}
+
+AST::~AST() { // geen recursieve delete
+
+}
+
+ostream& operator<<( ostream& os, const AST& ast ) {
+	os << "(" << ast.type << "," << ast.val << ",";
+	for( const AST* c: ast.children ) {
+		if( c == nullptr )
+			os << "INTERNAL ERROR";
+		else
+			os << *c;
+	}
+	return os << ")";
+}
 
 int main() {
 	//string s = "yolo = x <-> y / 5.0 * f(3,\"6\")";
 	//string s = "yolo = <4,5,6>*9";
-	string s = "function complex int conj( complex int z ) [  ]"
+	string s = "function int abs( complex int z ) [ int a = sqrt( z * conj(z) ), return a ]";
 	Tokens t(s);
 	for( auto& i : t )
-		cout << i << " " << int(i.type) << "#";
+		cout << i << ";";
 	cout << endl;
-	Tokens r = shuntingYard( t );
+	/*Tokens r = shuntingYard( t, 0, t.size() );
 	for( auto& i : r )
-		cout << i << "#";
+		cout << i << ";";
+	cout << endl;*/
+	cout << AST(t) << endl;
 }
