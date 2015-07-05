@@ -6,6 +6,7 @@
 #include <tuple>
 #include <climits>
 #include <sstream>
+#include <exception>
 
 #include "ast.h"
 
@@ -32,6 +33,7 @@ const map<string, int> keywords {
 	{ "import", INT_MIN },
 	{ "if", 1 },
 	{ "else", 0 },
+	{ "while", 1 },
 	{ "forever", 0 },
 	{ "break", -1 },
 	{ "continue", 0 },
@@ -150,10 +152,8 @@ Tokens::Tokens( const string& s ) {
 						u.push_back( s[i] );
 						u.type = OPERATOR;
 						i++;
-					} else {
-						cerr << "Error: Invalid operator '" << s[i] << "'!" << endl;
-						throw;
-					}
+					} else
+						throw compile_exception( "Invalid operator '" + string( 1, s[i] ) + "'", i );
 				} else if( s[i] == '{' || s[i] == '[' || s[i] == '(' ) { // opening brackets
 					u.push_back( s[i] );
 					u.type = LEFT_BRACKET;
@@ -173,16 +173,13 @@ Tokens::Tokens( const string& s ) {
 				} else if( s[i] == '.' ) { // float
 					if( mode == MODE_INT )
 						mode = MODE_FLOAT;
-					else {
-						cerr << "Error: Unexpected '.' !" << endl;
-						throw;
-					}
+					else
+						throw compile_exception( "Unexpected '.'", i );
 					t.push_back( s[i] );
 					terminate = false;
-				} else if( !isdigit( s[i] ) && ( mode == MODE_INT || mode == MODE_FLOAT ) ) { // filter letters from numbers
-					cerr << "Error: Unexpected '" << s[i] << "' in number!" << endl;
-					throw;
-				} else {
+				} else if( !isdigit( s[i] ) && ( mode == MODE_INT || mode == MODE_FLOAT ) ) // filter letters from numbers
+					throw compile_exception( "Unexpected '" + string( 1, s[i] ) + "' in number", i );
+				else {
 					t.push_back( s[i] );
 					terminate = false;
 				}
@@ -223,13 +220,10 @@ Tokens::Tokens( const string& s ) {
 			t.type = FLOAT;
 		else if( mode == MODE_NAME )
 			t.type = VARIABLE;
-		else if( mode == MODE_STRING ) {
-			cerr << "Error: Missing closing-'\"'!" << endl;
-			throw;
-		} else {
-			cerr << "Internal Error: Unexpected tokenize mode!" << endl;
-			throw;
-		}
+		else if( mode == MODE_STRING )
+			throw compile_exception( "Missing closing-'\"'", n );
+		else
+			throw compile_exception( "Unexpected tokenize mode", n );
 		push_back( t );
 	}
 }
@@ -242,21 +236,15 @@ int bracketIterator( const Tokens& tokens, int i, int n ) {
 			if( tokens[i].type == LEFT_BRACKET )
 				bracket_stack.push( tokens[i].str().front() );
 			else if( tokens[i].type == RIGHT_BRACKET ) {
-				if( bracket_stack.top() != tokens[i].str().front() ) {
-					cerr << "Error: Mismatched parenthesis!" << endl;
-					throw;
-				}
+				if( bracket_stack.top() != tokens[i].str().front() )
+					throw compile_exception( "Mismatched parenthesis", i );
 				bracket_stack.pop();
 			}
 		}
-		if( !bracket_stack.empty() ) {
-			cerr << "Error: Missing parenthesis!" << endl;
-			throw;
-		}
-	} else {
-		cerr << "Internal Error: '" << tokens[i] << "' is not a left-parenthesis!" << endl;
-		throw; 
-	}
+		if( !bracket_stack.empty() )
+			throw compile_exception( "Missing parenthesis", i );
+	} else
+		throw compile_exception( "'" + tokens[i].str() + "' is not a left-parenthesis", i ); 
 	return i; // return index past closing bracket
 }
 
@@ -281,10 +269,8 @@ int resolveTypename( const Tokens& tokens, AST*& typename_result, int i, int n )
 	typename_result = new AST( AT_DATATYPE );
 	AST* head = typename_result;
 	while( i < n && tokens[i].type == TYPENAME ) {
-		if( isFinal ) {
-			cerr << "Error: Not expecting '" << tokens[i] << "'!" << endl;
-			throw;
-		}
+		if( isFinal ) 
+			throw compile_exception( "Not expecting '" + tokens[i].str() + "'", i );
 		if( datatypes.find( tokens[i].str() ) != datatypes.end() ) {
 			head->val = tokens[i];
 			if( datatypes.at(tokens[i].str()).second == false ) {
@@ -293,16 +279,13 @@ int resolveTypename( const Tokens& tokens, AST*& typename_result, int i, int n )
 				head->children.push_back( new AST( AT_DATATYPE ) );
 				head = head->children.back();
 			}
-		} else {
-			cerr << "Error: Unknown datatype '" << tokens[i] << "'!" << endl;
-			throw;
-		}
+		} else 
+			throw compile_exception( "Unknown datatype '" + tokens[i].str() + "'", i );
 		i++;
 	}
-	if( !isFinal ) {
-		cerr << "Error: Expected datatype!" << endl;
-		throw;
-	}
+	if( !isFinal ) 
+throw compile_exception( " Expected datatype", i );
+
 	return i; // return index past last datatype specifier
 }
 
@@ -311,10 +294,8 @@ AST* loopYard( const Tokens& postfix, int& n ) {
 	int parameters;
 	stack<AST*> reverse;
 	n--;
-	if( n < 0 ) {
-		cerr << "Error: You done goofed!" << endl;
-		throw;
-	}
+	if( n < 0 ) 
+		throw compile_exception( "You done goofed", -1 );
 	switch( postfix[n].type ) { /*KEYWORDS NOT YET SUPPORTED*/
 		case OPERATOR:
 			if( get<2>( operator_precedence.at(postfix[n].str()) ) == true ) // is unary
@@ -347,8 +328,7 @@ AST* loopYard( const Tokens& postfix, int& n ) {
 			parameters = 0;
 			break;
 		default:
-			cerr << "Internal Error: Unknown/Unsupported token type!" << endl;
-			throw;
+			throw compile_exception( "Unknown/Unsupported token type", -1 );
 			h = nullptr;
 	}
 	for( int i = 0; i < parameters; i++ )
@@ -362,8 +342,6 @@ AST* loopYard( const Tokens& postfix, int& n ) {
 
 AST* junkYard( const Tokens& tokens, int i, int n ) { // converts statement tokens to AST using shuntingYard
 	Tokens postfix = shuntingYard( tokens, i, n );
-	/*for( const auto& X : postfix)
-		cerr << X << "/";*/
 	int k = postfix.size();
 	return loopYard( postfix, k );
 }
@@ -399,28 +377,20 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 								if( l + 1 < n && tokens[l].type == VARIABLE && ( tokens[l+1].type == COMMA || tokens[l+1].type == RIGHT_BRACKET ) ) {
 									b->children.push_back( new AST( AT_VARIABLEDEF, tokens[l].str() /*variable-name*/, { c /*data-type*/} ) );
 									m = l+2;
-								} else {
-									cerr << "Error: Variable name required in function definition!" << endl;
-									throw;
-								}
-							} else {
-								cerr << "Error: Expected typename in function definition!" << endl;
-								throw; 
-							}
+								} else 
+									throw compile_exception( "Variable name required in function definition", i );
+							} else 
+								throw compile_exception( "Expected typename in function definition", i );
 						}
 						l = bracketIterator( tokens, k, n );
 						if( tokens[j+1].str() == "(" && ( tokens[k].str() == SYNC_BRACKET || tokens[k].str() == ASYNC_BRACKET ) ) {
 					 		a = new AST( AT_FUNCTIONDEF, tokens[j].str(), { d /*return-type*/, b /*parameters*/, 
 					 				new AST( tokens[i].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", scotlandYard( tokens, k+1, l - 1 ) ) } );
 					 		i = l + 1;
-						} else {
-							cerr << "Error: Unexpected parenthesis-type near function definition!" << endl;
-							throw;
-						}
-					} else {
-						cerr << "Error: Expected function name!" << endl;
-						throw;
-					}
+						} else
+							throw compile_exception( "Unexpected parenthesis-type near function definition", i );
+					} else 
+						throw compile_exception( "Expected function name", i );
 				} else if( tokens[i].str() == "if" ) {
 					if( i+1 < n && tokens[i+1].type == LEFT_BRACKET && tokens[i+1].str() == "(" ) {
 						j = bracketIterator( tokens, i+1, n );
@@ -436,24 +406,31 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 										d = new AST( tokens[j+1].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", { scotlandYard( tokens, k+2, l-1 ) } );
 										a->children.push_back( d );
 										i = l;
-									} else {
-										cerr << "Error: Brackets after else-statement are required!" << endl;
-										throw;
-									}
+									} else
+										throw compile_exception( "Brackets after else-statement are required", i );
 								} else
 									i = k;
-							} else {
-								cerr << "Error: Brackets after if-statement are required!" << endl;
-								throw;
-							}
-						} else {
-							cerr << "Error: Empty if-statement!" << endl;
-							throw;
-						}
-					} else {
-						cerr << "Error: Expected conditional after if-statement!" << endl;
-						throw;
-					}
+							} else 
+								throw compile_exception( "Empty if-statement", i );
+						} else 
+							throw compile_exception( "Brackets after if-statement are required", i );
+					} else
+						throw compile_exception( "Expected conditional after if-statement", i ); 
+				} else if( tokens[i].str() == "while" ) {
+					if( i + 1 < n && tokens[i+1].type == LEFT_BRACKET && tokens[i+1] == "(" ) {
+						j = bracketIterator( tokens, i+1, n );
+						if( j < n ) {
+							b = junkYard( tokens, i+2, j-1 );
+							if( tokens[j].type == LEFT_BRACKET && ( tokens[j].str() == ASYNC_BRACKET || tokens[j].str() == SYNC_BRACKET ) ) {
+								k = bracketIterator( tokens, j, n );
+								a = new AST( AT_LOOP, "while", { b, new AST( tokens[j+1].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", { scotlandYard( tokens, j+1, k-1 ) } ) } );
+								i = k;
+							} else 
+								throw compile_exception( "Brackets after while-statement are required", i );
+						} else 
+							throw compile_exception( "Empty if-statement", i );
+					} else 
+						throw compile_exception( "Expected conditional after while-statement", i );
 				} else if( tokens[i].str() == "return" ) {
 					if( i + 1 < n && tokens[i+1].type != COMMA ) {
 						l = commaIterator( tokens, i + 1, n );
@@ -461,14 +438,10 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 							l = n;
 						a = new AST( AT_FLOW, "return", { junkYard( tokens, i + 1, l ) } );
 						i = l;
-					} else {
-						cerr << "Error: Empty return statement!" << endl;
-						throw;
-					}
-				} else {
-					cerr << "Error: Unexpected '" << tokens[i].str() << "' keyword!" << endl;
-					throw;
-				}
+					} else 
+						throw compile_exception( "Empty return statement", i );
+				} else 
+					throw compile_exception( "Unexpected '" + tokens[i].str() + "' keyword", i );
 				break;
 			case LEFT_BRACKET:
 				if( tokens[i].str() == SYNC_BRACKET || tokens[i].str() == ASYNC_BRACKET ) {
@@ -477,10 +450,8 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 			 		a->children = scotlandYard( tokens, i, j - 1 );
 					i = j;
 					break;
-				} else if(  tokens[i].str() == "<" ) {
-					cerr << "Error: Unexpected '" << tokens[i] << "'!" << endl;
-					throw;
-				}
+				} else if(  tokens[i].str() == "<" ) 
+					throw compile_exception( "Unexpected '" + tokens[i].str() + "'" , i );
 			case VARIABLE: case INTEGER: case FLOAT: case STRING: case FUNCTION:
 				k = commaIterator( tokens, i, n );
 				if( k == -1 )
@@ -503,66 +474,23 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 						} else if( tokens[k+1].type == COMMA ) {
 							a = c;
 							i = k + 1;
-						} else {
-							cerr << "Error: Unexpected '" << tokens[k+1].str() << "' in variable definition!" << endl;
-							throw;
-						}
+						} else 
+							throw compile_exception( "Unexpected '" + tokens[k+1].str() + "' in variable definition" , k+1 );
 					}
-				} else {
-					cerr << "Error: Expected variable name after datatype specifier!" << endl;
-					throw;
-				}
+				} else 
+					throw compile_exception( "Expected variable name after datatype specifier", i );
 			break;
 		}
 		r.push_back( a );
 		if( i < n ) {
-			if( tokens[i].type != COMMA ) {
-				cerr << "Error: Expected comma!" << endl;
-				throw;
-			} else
+			if( tokens[i].type != COMMA ) 
+				throw compile_exception( "Expected comma", i );
+			else
 				i++;
 		}
 	}
 	return r;
 }
-
-/*AST* scotlandYard( const Tokens& tokens, int i = 0, int n = -1 ) {
-	int brackets;
-	int j, k;
-	if( n == -1 )
-		n = tokens.size();
-	if( tokens[i].type == KEYWORD ) {
-		if( tokens[i].str() == "if" ) {
-			if( i+1 < n && tokens[i+1].type == LEFT_BRACKET && tokens[i+1].str() == "(" ) {
-				j = bracketIterator( tokens, i+1, n );
-				scotlandYard( tokens, i+1, j );
-				scotlandYard( tokens, j, n );
-			} else {
-				cerr << "Error: Expected conditional after if-statement!" << endl;
-				throw;
-			}
-		} else if( tokens[i].str() == "function" ) {
-			j = resolveTypename( tokens, i+1, n );
-			if( tokens[j].type == FUNCTION ) {
-				k = bracketIterator( tokens, j+1, n )
-				scotlandYard( tokens, k, n );
-			} else {
-				cerr << "Error: Expected function name!" << endl;
-				throw;
-			}
-		}
-	} else if( tokens[i].type == LEFT_BRACKET) {
-		brackets = 1;
-		while( ++i < n && brackets > 0 ) {
-			if( tokens[i].type == LEFT_BRACKET )
-				brackets++;
-			else if( tokens[i].type == RIGHT_BRACKET )
-				brackets--;
-		}
-	} else {
-		
-	}
-}*/
 
 Tokens shuntingYard( const Tokens& tokens, int i, int n ) {
 	stack<Token> operator_stack;
@@ -578,17 +506,13 @@ Tokens shuntingYard( const Tokens& tokens, int i, int n ) {
 			operator_stack.push( token );
 		else if( token.type == COMMA ) {
 			comma_stack.top()++;
-			if( operator_stack.empty() ) {
-				cerr << "Error: No left-parenthesis before ','!" << endl;
-				throw;
-			}
+			if( operator_stack.empty() ) 
+				throw compile_exception( "No left-parenthesis before ','", i );
 			while( operator_stack.top().type != LEFT_BRACKET ) {
 				output.push_back( operator_stack.top() );
 				operator_stack.pop();
-				if( operator_stack.empty() ) {
-					cerr << "Error: No left-parenthesis before ','!" << endl;
-					throw;
-				}
+				if( operator_stack.empty() ) 
+					throw compile_exception( "No left-parenthesis before ','", i );
 			}
 		} else if( token.type == OPERATOR ) {
 			while( !operator_stack.empty() && operator_stack.top().type == OPERATOR && (
@@ -602,17 +526,13 @@ Tokens shuntingYard( const Tokens& tokens, int i, int n ) {
 			operator_stack.push( token );
 			comma_stack.push(0);
 		} else if( token.type == RIGHT_BRACKET ) {
-			if( operator_stack.empty() ) {
-				cerr << "Error: Missing left-parenthesis!" << endl;
-				throw;
-			}
+			if( operator_stack.empty() ) 
+				throw compile_exception( "Missing left-parenthesis", i );
 			while( operator_stack.top().type != LEFT_BRACKET ) {
 				output.push_back( operator_stack.top() );
 				operator_stack.pop();
-				if( operator_stack.empty() ) {
-					cerr << "Error: Missing left-parenthesis!" << endl;
-					throw;
-				}
+				if( operator_stack.empty() ) 
+					throw compile_exception( "Missing left-parenthesis", i );
 			}
 			operator_stack.pop();
 			if( token.str() == "<" ) {
@@ -634,10 +554,8 @@ Tokens shuntingYard( const Tokens& tokens, int i, int n ) {
 
 	}
 	while( !operator_stack.empty() ) {
-		if( operator_stack.top().type == LEFT_BRACKET ) {
-			cerr << "Error: Missing right-parenthesis!" << endl;
-			throw;
-		}
+		if( operator_stack.top().type == LEFT_BRACKET ) 
+			throw compile_exception( "Missing right-parenthesis", i );
 		output.push_back( operator_stack.top() );
 		operator_stack.pop();
 	}
@@ -663,6 +581,16 @@ AST::~AST() { // geen recursieve delete
 
 }
 
+const char* compile_exception::what() const noexcept {
+	string s = "(" + to_string( token_id ) + ") Error: " + err_str + "!";
+	return s.c_str();
+}
+
+compile_exception::compile_exception( string err, int i ) {
+	err_str = move( err );
+	token_id = i;
+}
+
 ostream& operator<<( ostream& os, const AST& ast ) {
 	os << "(" << ast.type << "," << ast.val << ",";
 	for( const AST* c: ast.children ) {
@@ -680,14 +608,12 @@ int main() {
 	//string s = "func()";
 	//string s = "function int abs( complex int z ) [ int a = sqrt( z * conj(z) ), return a ]";
 	//string s = "if( swag ) [ yolo() ]";
-	string s = "if( foo && bar ) { func() } else [ bar() ]";
+	//string s = "if( foo && bar ) { func() } else [ bar() ]";
+	string s = "int i = 0, while( less( i, 10 ) ) [ print(i), i = i + 1 ]";
 	Tokens t(s);
 	for( auto& i : t )
 		cout << i << ";";
 	cout << endl;
-	/*Tokens r = shuntingYard( t, 0, t.size() );
-	for( auto& i : r )
-		cout << i << ";";
-	cout << endl;*/
+
 	cout << AST(t) << endl;
 }

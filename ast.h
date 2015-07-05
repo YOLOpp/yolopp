@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <exception>
 
 using namespace std;
 
@@ -65,6 +66,14 @@ struct AST{
 	AST(const Tokens&);
 	~AST(void);
 	string translate(void);
+};
+
+class compile_exception : public exception {
+	string err_str;
+	int token_id;
+	virtual const char* what() const noexcept;
+public:
+	compile_exception( string err, int i );
 };
 
 int bracketIterator( const Tokens& tokens, int i, int n );
