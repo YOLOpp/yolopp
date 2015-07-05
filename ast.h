@@ -59,7 +59,6 @@ struct AST{
 	ast_type_t type;
 	string val;
 	vector<AST*> children;
-public:
 	AST() = default;
 	AST( ast_type_t t );
 	AST( ast_type_t t, string v, vector<AST*> c );

@@ -9,7 +9,7 @@
 
 #include "ast.h"
 
-map< string, tuple< int, associativity, bool > > operator_precedence {
+const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{"!",make_tuple(1,RIGHT,true)},
 	{"?",make_tuple(1,RIGHT,true)},
 	{"<->",make_tuple(2,LEFT,false)},
@@ -28,7 +28,7 @@ map< string, tuple< int, associativity, bool > > operator_precedence {
 
 // name, number of parameters
 // n>=0 : n parameters, n<0  : -n optional parameters
-map<string, int> keywords {
+const map<string, int> keywords {
 	{ "import", INT_MIN },
 	{ "if", 1 },
 	{ "else", 0 },
@@ -41,7 +41,7 @@ map<string, int> keywords {
 };
 
 // name, parameters, is prefix
-map<string, pair<int, bool> > datatypes {
+const map<string, pair<int, bool> > datatypes {
 	{ "null", make_pair(0,false) }, // for functions returning nothing
 	{ "int", make_pair(-1, false) },
 	{ "string", make_pair(0, false) },
@@ -49,6 +49,9 @@ map<string, pair<int, bool> > datatypes {
 	{ "array", make_pair(INT_MIN, true) },
 	{ "complex", make_pair(-1, true) }
 };
+
+const string ASYNC_BRACKET = "{";
+const string SYNC_BRACKET = "[";
 
 /*Tokens::Tokens( const string & s ) {
 	int n = s.size();
@@ -284,7 +287,7 @@ int resolveTypename( const Tokens& tokens, AST*& typename_result, int i, int n )
 		}
 		if( datatypes.find( tokens[i].str() ) != datatypes.end() ) {
 			head->val = tokens[i];
-			if( datatypes[tokens[i].str()].second == false ) {
+			if( datatypes.at(tokens[i].str()).second == false ) {
 				isFinal = true;
 			} else {
 				head->children.push_back( new AST( AT_DATATYPE ) );
@@ -314,7 +317,7 @@ AST* loopYard( const Tokens& postfix, int& n ) {
 	}
 	switch( postfix[n].type ) { /*KEYWORDS NOT YET SUPPORTED*/
 		case OPERATOR:
-			if( get<2>( operator_precedence[postfix[n].str()] ) == true ) // is unary
+			if( get<2>( operator_precedence.at(postfix[n].str()) ) == true ) // is unary
 				parameters = 1;
 			else
 				parameters = 2;
@@ -406,9 +409,9 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 							}
 						}
 						l = bracketIterator( tokens, k, n );
-						if( tokens[j+1].str() == "(" && ( tokens[k].str() == "{" || tokens[k].str() == "[" ) ) {
+						if( tokens[j+1].str() == "(" && ( tokens[k].str() == SYNC_BRACKET || tokens[k].str() == ASYNC_BRACKET ) ) {
 					 		a = new AST( AT_FUNCTIONDEF, tokens[j].str(), { d /*return-type*/, b /*parameters*/, 
-					 				new AST( tokens[i].str() == "{" ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", scotlandYard( tokens, k+1, l - 1 ) ) } );
+					 				new AST( tokens[i].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", scotlandYard( tokens, k+1, l - 1 ) ) } );
 					 		i = l + 1;
 						} else {
 							cerr << "Error: Unexpected parenthesis-type near function definition!" << endl;
@@ -418,14 +421,27 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 						cerr << "Error: Expected function name!" << endl;
 						throw;
 					}
-				} else if( tokens[i].str() == "if" ) { // work in progress
+				} else if( tokens[i].str() == "if" ) {
 					if( i+1 < n && tokens[i+1].type == LEFT_BRACKET && tokens[i+1].str() == "(" ) {
 						j = bracketIterator( tokens, i+1, n );
-						junkYard( tokens, i+1, j-1 );
+						b = junkYard( tokens, i+2, j-1 );
 						if( j < n ) {
-							if( tokens[j].type == LEFT_BRACKET && ( tokens[j].str() == "[" || tokens[j].str() == "{" ) ) {
-								a = new AST( AT_CONDITIONAL, "", { nullptr /*condition*/, 
-										new AST( tokens[i].str() == "{" ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", scotlandYard( tokens, k+1, l - 2 ) ) } );
+							if( tokens[j].type == LEFT_BRACKET && ( tokens[j].str() == ASYNC_BRACKET || tokens[j].str() == SYNC_BRACKET ) ) {
+								k = bracketIterator( tokens, j, n );
+								c = new AST( tokens[j].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", { scotlandYard( tokens, j+1, k-1 ) } );
+								a = new AST( AT_CONDITIONAL, "", { b, c } );
+								if( k < n && tokens[k].type == KEYWORD && tokens[k].str() == "else" ) {
+									if( k + 1 < n && tokens[k+1].type == LEFT_BRACKET && ( tokens[k+1].str() == ASYNC_BRACKET || tokens[k+1].str() == SYNC_BRACKET ) ) {
+										l = bracketIterator( tokens, k+1, n );
+										d = new AST( tokens[j+1].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", { scotlandYard( tokens, k+2, l-1 ) } );
+										a->children.push_back( d );
+										i = l;
+									} else {
+										cerr << "Error: Brackets after else-statement are required!" << endl;
+										throw;
+									}
+								} else
+									i = k;
 							} else {
 								cerr << "Error: Brackets after if-statement are required!" << endl;
 								throw;
@@ -449,11 +465,14 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 						cerr << "Error: Empty return statement!" << endl;
 						throw;
 					}
+				} else {
+					cerr << "Error: Unexpected '" << tokens[i].str() << "' keyword!" << endl;
+					throw;
 				}
 				break;
 			case LEFT_BRACKET:
-				if( tokens[i].str() == "{" || tokens[i].str() == "[" ) {
-			 		a = new AST( tokens[i].str() == "{" ? AT_SYNCBLOCK : AT_ASYNCBLOCK );
+				if( tokens[i].str() == SYNC_BRACKET || tokens[i].str() == ASYNC_BRACKET ) {
+			 		a = new AST( tokens[i].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK );
 					j = bracketIterator( tokens, i, n );
 			 		a->children = scotlandYard( tokens, i, j - 1 );
 					i = j;
@@ -573,8 +592,8 @@ Tokens shuntingYard( const Tokens& tokens, int i, int n ) {
 			}
 		} else if( token.type == OPERATOR ) {
 			while( !operator_stack.empty() && operator_stack.top().type == OPERATOR && (
-					( get<1>( operator_precedence[token.str()] ) == LEFT && get<0>(operator_precedence[token.str()]) >= get<0>(operator_precedence[operator_stack.top().str()]) ) || 
-					( get<1>( operator_precedence[token.str()] ) == RIGHT && get<0>(operator_precedence[token.str()]) > get<0>(operator_precedence[operator_stack.top().str()]) ) ) ) {
+					( get<1>( operator_precedence.at(token.str()) ) == LEFT && get<0>(operator_precedence.at(token.str())) >= get<0>(operator_precedence.at(operator_stack.top().str())) ) || 
+					( get<1>( operator_precedence.at(token.str()) ) == RIGHT && get<0>(operator_precedence.at(token.str())) > get<0>(operator_precedence.at(operator_stack.top().str())) ) ) ) {
 				output.push_back( operator_stack.top() );
 				operator_stack.pop();
 			}
@@ -625,106 +644,6 @@ Tokens shuntingYard( const Tokens& tokens, int i, int n ) {
 	return output;
 }
 
-
-/*Tokens shuntingYard( const Tokens& tokens ) {
-	stack<Token> operator_stack;
-	stack<int> comma_stack;
-	Tokens output;
-	for( int i = 0; i < tokens.size(); i++ ) {
-		Token s = tokens.at(i);
-		int x;
-		if( !operator_stack.empty() && operator_stack.top().type == LEFT_BRACKET && comma_stack.top() == 0 && s.type != RIGHT_BRACKET )
-			comma_stack.top() = 1;
-
-		cout << "(" << s << ")";
-		if( s.type == OPERATOR) {
-			if( s.type == FLOAT || s.type == STRING || s.type == INTEGER ) // constants
-				output.push_back( s );
-			} else if( s.type == LEFT_BRACKET ) { // left parenthesis
-				operator_stack.push( s );
-				comma_stack.push( 0 );
-			} else if( s.type == RIGHT_BRACKET ) {
-				if( operator_stack.empty() ) { // no left-parenthesis
-					cerr << "Error: Unmatched right parenthesis!" << endl;
-					throw;
-				}
-				while( operator_stack.top().type() != LEFT_BRACKET ) { // find left-parenthesis
-					output.push_back( operator_stack.top() );
-					operator_stack.pop();
-					if( operator_stack.empty() ) { // no left-parenthesis
-						cerr << "Error: Unmatched right parenthesis!" << endl;
-						throw;
-					}
-				}
-				if( operator_stack.top().str() != s.str() ) { // unmatched parenthesis
-					cerr << "Error: Closing \'" << operator_stack.top() << "' with '" << s << "'!" << endl;
-					throw;
-				}
-				operator_stack.pop();
-				if( s.str() == ">" ) {
-					Token t;
-					t.str() = "array " + to_string(comma_stack.top());
-					t.type = KEYWORD;
-					output.push_back( t );
-				} else {
-					if( operator_stack.empty() ) {
-
-					} else if( operator_stack.top().type ==  ) {
-						try {
-							stoi( operator_stack.top() );
-						} catch( const invalid_argument& ia ) {
-							if( operator_stack.top() != "(" && operator_stack.top() != "{" && operator_stack.top() != "[" &&
-									operator_stack.top() != "<" && operator_stack.top() != "," ) {
-								output.push_back( operator_stack.top() + to_string( comma_stack.top() ) );
-								operator_stack.pop();
-							}
-						}
-					}
-				}
-				comma_stack.pop();
-			} else if( s == "," ) {
-				if( operator_stack.empty() ) {
-					cerr << "Error: Unmatched right parenthesis!" << endl;
-					throw;
-				}
-				while( operator_stack.top() != "(" && operator_stack.top() != "{" && operator_stack.top() != "[" &&
-						operator_stack.top() != "<" ) {
-					output.push_back( operator_stack.top() );
-					operator_stack.pop();
-					if( operator_stack.empty() ) {
-						cerr << "Error: Unmatched right parenthesis!" << endl;
-						throw;
-					}
-				}
-				comma_stack.top()++;
-			} else if( s.back() == ' ' ) {
-				operator_stack.push( s );
-			} else if( keywords.find( s ) == keywords.end() ) {
-				output.push_back( s );
-			}
-		} else {
-			while( !operator_stack.empty() && ( ( get<1>(ref->second) == LEFT && get<0>(ref->second) >= get<0>( operator_precedence[ operator_stack.top()] ) ) || 
-					(get<1>(ref->second) == RIGHT && get<0>(ref->second) > get<0>( operator_precedence[ operator_stack.top() ] ) ) ) )  {
-				output.push_back( operator_stack.top() );
-				operator_stack.pop();
-			}
-			operator_stack.push( s );
-		}
-		for( auto& i : output )
-			cout << i << "#";
-		cout << endl;
-	}
-	while( !operator_stack.empty() ) {
-		if( operator_stack.top() == "(" || operator_stack.top() == "{" || operator_stack.top() == "{" || operator_stack.top() == "<" ) {
-			cerr << "Error: Unmatched left parenthesis!" << endl;
-			throw;
-		}
-		output.push_back( operator_stack.top() );
-		operator_stack.pop();
-	}
-	return output;
-}*/
-
 AST::AST( ast_type_t t ) {
 	type = t;
 }
@@ -758,7 +677,10 @@ ostream& operator<<( ostream& os, const AST& ast ) {
 int main() {
 	//string s = "yolo = x <-> y / 5.0 * f(3,\"6\")";
 	//string s = "yolo = <4,5,6>*9";
-	string s = "function int abs( complex int z ) [ int a = sqrt( z * conj(z) ), return a ]";
+	//string s = "func()";
+	//string s = "function int abs( complex int z ) [ int a = sqrt( z * conj(z) ), return a ]";
+	//string s = "if( swag ) [ yolo() ]";
+	string s = "if( foo && bar ) { func() } else [ bar() ]";
 	Tokens t(s);
 	for( auto& i : t )
 		cout << i << ";";
