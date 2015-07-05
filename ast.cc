@@ -11,20 +11,26 @@
 #include "ast.h"
 
 const map< string, tuple< int, associativity, bool > > operator_precedence {
-	{"!",make_tuple(1,RIGHT,true)},
-	{"?",make_tuple(1,RIGHT,true)},
-	{"<->",make_tuple(2,LEFT,false)},
-	{"<~>",make_tuple(2,RIGHT,false)},
-	{"^",make_tuple(3,RIGHT,false)},
-	{"-u",make_tuple(4,RIGHT,true)},
-	{"*",make_tuple(5,LEFT,false)},
-	{"/",make_tuple(5,LEFT,false)},
-	{"+",make_tuple(6,LEFT,false)},
-	{"-",make_tuple(6,LEFT,false)},
-	{"&&",make_tuple(12,LEFT,false)},
-	{"^^",make_tuple(13,LEFT,false)},
-	{"||",make_tuple(14,LEFT,false)},
-	{"=",make_tuple(15,RIGHT,false)}
+	{"!",make_tuple(1,RIGHT,true)},		// sort list
+	{"?",make_tuple(1,RIGHT,true)},		// shuffle list
+	{"<->",make_tuple(2,LEFT,false)},	// swap elements
+	{"<~>",make_tuple(2,RIGHT,false)},	//
+	{"^",make_tuple(3,RIGHT,false)},	// exponentiation
+	{"-u",make_tuple(4,RIGHT,true)},	// unary minus
+	{"*",make_tuple(5,LEFT,false)},		// multiplication
+	{"/",make_tuple(5,LEFT,false)},		// division
+	{"+",make_tuple(6,LEFT,false)},		// addition
+	{"-",make_tuple(6,LEFT,false)},		// subtraction
+	{"<",make_tuple(8,LEFT,false)},		// less-than
+	{">",make_tuple(8,LEFT,false)},		// more-than
+	{"<=",make_tuple(8,LEFT,false)},	// at most
+	{">=",make_tuple(8,LEFT,false)},	// at least
+	{"==",make_tuple(9,LEFT,false)},	// equal to
+	{"<>",make_tuple(9,LEFT,false)},	// less-than or more-than ( not equal to )
+	{"&&",make_tuple(12,LEFT,false)},	// and
+	{"^^",make_tuple(13,LEFT,false)},	// xor
+	{"||",make_tuple(14,LEFT,false)},	// or
+	{"=",make_tuple(15,RIGHT,false)}	// asignment
 };
 
 // name, number of parameters
@@ -132,9 +138,6 @@ Tokens::Tokens( const string& s ) {
 					if( !( back().type == RIGHT_BRACKET || back().type == VARIABLE || back().type == FLOAT || back().type == INTEGER || back().type == STRING ) ) // unary minus
 						u.push_back( 'u' ); 
 					u.type = OPERATOR;
-				} else if( operator_precedence.find( string( 1, s[i] ) ) != operator_precedence.end() ) { // single-character operator
-					u.push_back( s[i] );
-					u.type = OPERATOR;
 				} else if( s[i] == '<' ) {
 					if( i + 2 < n && s[i+2] == '>' && ( s[i+1] == '-' || s[i+1] == '~' ) ) { // swap operator
 						u.push_back( s[i] );
@@ -142,18 +145,32 @@ Tokens::Tokens( const string& s ) {
 						u.push_back( s[i+2] );
 						u.type = OPERATOR;
 						i += 2;
-					} else { // opening '<'-bracket
+					} else { // less-than
 						u.push_back( '<' );
-						u.type = LEFT_BRACKET;
+						if( i + 1 < n && s[i+1] == '=' ) { // at most
+							u.push_back( '=' );
+							i++;
+						} else if( i + 1 < n && s[i+1] == '>' ) { // not equal to
+							u.push_back( '>' );
+							i++;
+						}
+						u.type = OPERATOR;
 					}
-				} else if( s[i] == '|' || s[i] == '&' || s[i] == '^' ) { // logical operators
+				} else if( s[i] == '|' || s[i] == '&' || s[i] == '^' || s[i] == '=' ) { // logical operators
+					u.push_back( s[i] );
+					u.type = OPERATOR;
 					if( i + 1 < n && s[i] == s[i+1] ) {
 						u.push_back( s[i] );
-						u.push_back( s[i] );
-						u.type = OPERATOR;
 						i++;
-					} else
+					} else if( s[i] != '=' )
 						throw compile_exception( "Invalid operator '" + string( 1, s[i] ) + "'", i );
+				} else if( s[i] == '>' ) {
+					u.push_back( s[i] );
+					u.type = OPERATOR;
+					if( i + 1 < n && s[i] == '=' ) {
+						u.push_back( '=' );
+						i++;
+					}
 				} else if( s[i] == '{' || s[i] == '[' || s[i] == '(' ) { // opening brackets
 					u.push_back( s[i] );
 					u.type = LEFT_BRACKET;
@@ -179,7 +196,10 @@ Tokens::Tokens( const string& s ) {
 					terminate = false;
 				} else if( !isdigit( s[i] ) && ( mode == MODE_INT || mode == MODE_FLOAT ) ) // filter letters from numbers
 					throw compile_exception( "Unexpected '" + string( 1, s[i] ) + "' in number", i );
-				else {
+				else if( operator_precedence.find( string( 1, s[i] ) ) != operator_precedence.end() ) { // single-character operator
+					u.push_back( s[i] );
+					u.type = OPERATOR;
+				} else {
 					t.push_back( s[i] );
 					terminate = false;
 				}
@@ -284,8 +304,7 @@ int resolveTypename( const Tokens& tokens, AST*& typename_result, int i, int n )
 		i++;
 	}
 	if( !isFinal ) 
-throw compile_exception( " Expected datatype", i );
-
+		throw compile_exception( " Expected datatype", i );
 	return i; // return index past last datatype specifier
 }
 
@@ -348,14 +367,14 @@ AST* junkYard( const Tokens& tokens, int i, int n ) { // converts statement toke
 
 vector<AST*> graveYard( const Tokens& tokens, int i, int n ) { // applies junkYard to multiple statements seperated by commas
 	vector<AST*> r;
-	AST* temp = nullptr;
 	int j = i;
 	while( j < n ) {
 		while( tokens[j].type != COMMA && j < n )
 			j++;
-		junkYard( tokens, i, j );
-		i = j;
+		r.push_back( junkYard( tokens, i, j ) );
+		i = j + 1;
 	}
+	return r;
 }
 
 vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
@@ -480,6 +499,8 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 				} else 
 					throw compile_exception( "Expected variable name after datatype specifier", i );
 			break;
+			default:
+				throw compile_exception( "Unhandled token type", i );
 		}
 		r.push_back( a );
 		if( i < n ) {
@@ -609,7 +630,7 @@ int main() {
 	//string s = "function int abs( complex int z ) [ int a = sqrt( z * conj(z) ), return a ]";
 	//string s = "if( swag ) [ yolo() ]";
 	//string s = "if( foo && bar ) { func() } else [ bar() ]";
-	string s = "int i = 0, while( less( i, 10 ) ) [ print(i), i = i + 1 ]";
+	string s = "int i = 0, while( i < 10 ) [ print(i), i = i + 1 ]";
 	Tokens t(s);
 	for( auto& i : t )
 		cout << i << ";";
