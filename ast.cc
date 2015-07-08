@@ -61,41 +61,6 @@ const map<string, pair<int, bool> > datatypes {
 const string ASYNC_BRACKET = "{";
 const string SYNC_BRACKET = "[";
 
-/*Tokens::Tokens( const string & s ) {
-	int n = s.size();
-	bool func_fix = false;
-	string t;
-	for( int i = 0; i < n; i++ ) {
-		if( !isalpha( s[i] ) && !isdigit( s[i] ) ) {
-			if( !isspace( s[i] ) )
-				func_fix = false;
-			if( t != "" ) {
-				push_back( t );
-				t.clear();
-				func_fix = true;
-			}
-			if( (s[i] == '|' || s[i] == '&' || s[i] == '^') && i+1 < n && s[i] == s[i+1] ) {
-				push_back( s.substr( i, 2 ) );
-				i++;
-			} else if( i + 2 < n && s[i] == '<' && s[i+2] == '>' && ( s[i+1] == '-' || s[i+1] == '~' ) ) {
-				push_back( s.substr( i, 3 ) );
-				i+=2;
-			} else if( s[i] == '-' && ( back() == ">" || back() == ")" || isdigit(back()[0]) || isalpha(back()[0]) ) ) {
-				push_back( "-u" );
-			} else if( s[i] == '(' ) {
-				if( func_fix )
-					back() += " ";
-				push_back( "(" );
-			} else if( !isspace( s[i] ) ) {
-				push_back( string( 1, s[i] ) );
-			}
-		} else
-			t += s[i];
-	}
-	if( t != "" )
-		push_back( t );
-}*/
-
 Tokens::Tokens( const string& s ) {
 	int n = s.size();
 	enum { MODE_NONE, MODE_INT, MODE_FLOAT, MODE_STRING, MODE_NAME } mode = MODE_NONE;
@@ -231,7 +196,6 @@ Tokens::Tokens( const string& s ) {
 				terminate = false;
 			}
 		}
-		//cout << "t:\"" << t << "\" mode:" << int(mode) << endl;
 	}
 	if( !t.empty() ) {
 		if( mode == MODE_INT )
@@ -248,15 +212,15 @@ Tokens::Tokens( const string& s ) {
 	}
 }
 
-int bracketIterator( const Tokens& tokens, int i, int n ) {
-	if( tokens[i].type == LEFT_BRACKET) {
+int Tokens::bracketIterator( int i, int n ) const {
+	if( at(i).type == LEFT_BRACKET) {
 		stack<char> bracket_stack;
-		bracket_stack.push( tokens[i].str().front() );
+		bracket_stack.push( at(i).str().front() );
 		while( ++i < n && !bracket_stack.empty() ) {
-			if( tokens[i].type == LEFT_BRACKET )
-				bracket_stack.push( tokens[i].str().front() );
-			else if( tokens[i].type == RIGHT_BRACKET ) {
-				if( bracket_stack.top() != tokens[i].str().front() )
+			if( at(i).type == LEFT_BRACKET )
+				bracket_stack.push( at(i).str().front() );
+			else if( at(i).type == RIGHT_BRACKET ) {
+				if( bracket_stack.top() != at(i).str().front() )
 					throw compile_exception( "Mismatched parenthesis", i );
 				bracket_stack.pop();
 			}
@@ -264,43 +228,43 @@ int bracketIterator( const Tokens& tokens, int i, int n ) {
 		if( !bracket_stack.empty() )
 			throw compile_exception( "Missing parenthesis", i );
 	} else
-		throw compile_exception( "'" + tokens[i].str() + "' is not a left-parenthesis", i ); 
+		throw compile_exception( "'" + at(i).str() + "' is not a left-parenthesis", i ); 
 	return i; // return index past closing bracket
 }
 
-int commaIterator( const Tokens& tokens, int i , int n ) {
+int Tokens::commaIterator( int i , int n ) const {
 	int brackets = 0;
 	while( i < n ) {
-		if( tokens[i].type == LEFT_BRACKET )
+		if( at(i).type == LEFT_BRACKET )
 			brackets++;
-		else if( tokens[i].type == RIGHT_BRACKET ) {
+		else if( at(i).type == RIGHT_BRACKET ) {
 			brackets--;
 			if( brackets < 0 )
 				return -1;
-		} else if( tokens[i].type == COMMA )
+		} else if( at(i).type == COMMA )
 			return i;
 		i++;
 	}
 	return -1;
 }
 
-int resolveTypename( const Tokens& tokens, AST*& typename_result, int i, int n ) { // does not support datatype parameters yet
+int Tokens::resolveTypename( AST*& typename_result, int i, int n ) const { // does not support datatype parameters yet
 	bool isFinal = false;
 	typename_result = new AST( AT_DATATYPE );
 	AST* head = typename_result;
-	while( i < n && tokens[i].type == TYPENAME ) {
+	while( i < n && at(i).type == TYPENAME ) {
 		if( isFinal ) 
-			throw compile_exception( "Not expecting '" + tokens[i].str() + "'", i );
-		if( datatypes.find( tokens[i].str() ) != datatypes.end() ) {
-			head->val = tokens[i];
-			if( datatypes.at(tokens[i].str()).second == false ) {
+			throw compile_exception( "Not expecting '" + at(i).str() + "'", i );
+		if( datatypes.find( at(i).str() ) != datatypes.end() ) {
+			head->val = at(i);
+			if( datatypes.at(at(i).str()).second == false ) {
 				isFinal = true;
 			} else {
 				head->children.push_back( new AST( AT_DATATYPE ) );
 				head = head->children.back();
 			}
 		} else 
-			throw compile_exception( "Unknown datatype '" + tokens[i].str() + "'", i );
+			throw compile_exception( "Unknown datatype '" + at(i).str() + "'", i );
 		i++;
 	}
 	if( !isFinal ) 
@@ -308,24 +272,24 @@ int resolveTypename( const Tokens& tokens, AST*& typename_result, int i, int n )
 	return i; // return index past last datatype specifier
 }
 
-AST* loopYard( const Tokens& postfix, int& n ) {
+AST* Tokens::loopYard( int& n ) const {
 	AST* h = new AST;
 	int parameters;
 	stack<AST*> reverse;
 	n--;
 	if( n < 0 ) 
 		throw compile_exception( "You done goofed", -1 );
-	switch( postfix[n].type ) { /*KEYWORDS NOT YET SUPPORTED*/
+	switch( at(n).type ) { /*KEYWORDS NOT YET SUPPORTED*/
 		case OPERATOR:
-			if( get<2>( operator_precedence.at(postfix[n].str()) ) == true ) // is unary
+			if( get<2>( operator_precedence.at(at(n).str()) ) == true ) // is unary
 				parameters = 1;
 			else
 				parameters = 2;
-			h->val = "operator" + postfix[n]; // temporary
+			h->val = "operator" + at(n); // temporary
 			h->type = AT_FUNCTIONCALL;
 			break;
 		case FUNCTION: {
-			stringstream ss( postfix[n].str(), ios_base::in );
+			stringstream ss( at(n).str(), ios_base::in );
 			ss >> (h->val) >> parameters;
 			h->type = AT_FUNCTIONCALL;
 			break;
@@ -333,17 +297,17 @@ AST* loopYard( const Tokens& postfix, int& n ) {
 		case INTEGER:
 		case FLOAT:
 			h->type = AT_NUMBER;
-			h->val = postfix[n];
+			h->val = at(n);
 			parameters = 0;
 			break;
 		case STRING:
 			h->type = AT_STRING;
-			h->val = postfix[n];
+			h->val = at(n);
 			parameters = 0;
 			break;
 		case VARIABLE:
 			h->type = AT_WORD;
-			h->val = postfix[n];
+			h->val = at(n);
 			parameters = 0;
 			break;
 		default:
@@ -351,7 +315,7 @@ AST* loopYard( const Tokens& postfix, int& n ) {
 			h = nullptr;
 	}
 	for( int i = 0; i < parameters; i++ )
-		reverse.push( loopYard( postfix, n ) );
+		reverse.push( loopYard( n ) );
 	while( !reverse.empty() ) {
 		h->children.push_back( reverse.top() );
 		reverse.pop();
@@ -359,13 +323,13 @@ AST* loopYard( const Tokens& postfix, int& n ) {
 	return h;
 }
 
-AST* junkYard( const Tokens& tokens, int i, int n ) { // converts statement tokens to AST using shuntingYard
-	Tokens postfix = shuntingYard( tokens, i, n );
+AST* Tokens::junkYard( int i, int n ) const { // converts statement tokens to AST using shuntingYard
+	Tokens postfix = shuntingYard( i, n );
 	int k = postfix.size();
-	return loopYard( postfix, k );
+	return postfix.loopYard( k );
 }
 
-vector<AST*> graveYard( const Tokens& tokens, int i, int n ) { // applies junkYard to multiple statements seperated by commas
+/*vector<AST*> graveYard( const Tokens& tokens, int i, int n ) { // applies junkYard to multiple statements seperated by commas
 	vector<AST*> r;
 	int j = i;
 	while( j < n ) {
@@ -375,54 +339,54 @@ vector<AST*> graveYard( const Tokens& tokens, int i, int n ) { // applies junkYa
 		i = j + 1;
 	}
 	return r;
-}
+}*/
 
-vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
+vector<AST*> Tokens::scotlandYard( int i, int n, int& block_id ) const {
 	vector<AST*> r;
 	AST *a = nullptr, *b = nullptr, *c = nullptr, *d = nullptr;
 	int j, k, l, m;
 	while( i < n ) {
-		switch( tokens[i].type ) {
+		switch( at(i).type ) {
 			case KEYWORD:
-				if( tokens[i].str() == "function" ) {
-					j = resolveTypename( tokens, d, i + 1, n );
-					if( j < n && tokens[j].type == FUNCTION ) {
-						k = bracketIterator( tokens, j+1, n );
+				if( at(i).str() == "function" ) {
+					j = resolveTypename( d, i + 1, n );
+					if( j < n && at(j).type == FUNCTION ) {
+						k = bracketIterator( j+1, n );
 						m = j + 2;
 						b = new AST( AT_ARRAY );
 						while( m < k ) {
-							if( tokens[m].type == TYPENAME ) {
-								l = resolveTypename( tokens, c, m, k - 1 );
-								if( l + 1 < n && tokens[l].type == VARIABLE && ( tokens[l+1].type == COMMA || tokens[l+1].type == RIGHT_BRACKET ) ) {
-									b->children.push_back( new AST( AT_VARIABLEDEF, tokens[l].str() /*variable-name*/, { c /*data-type*/} ) );
+							if( at(m).type == TYPENAME ) {
+								l = resolveTypename( c, m, k - 1 );
+								if( l + 1 < n && at(l).type == VARIABLE && ( at(l+1).type == COMMA || at(l+1).type == RIGHT_BRACKET ) ) {
+									b->children.push_back( new AST( AT_VARIABLEDEF, at(l).str() /*variable-name*/, { c /*data-type*/} ) );
 									m = l+2;
 								} else 
 									throw compile_exception( "Variable name required in function definition", i );
 							} else 
 								throw compile_exception( "Expected typename in function definition", i );
 						}
-						l = bracketIterator( tokens, k, n );
-						if( tokens[j+1].str() == "(" && ( tokens[k].str() == SYNC_BRACKET || tokens[k].str() == ASYNC_BRACKET ) ) {
-					 		a = new AST( AT_FUNCTIONDEF, tokens[j].str(), { d /*return-type*/, b /*parameters*/, 
-					 				new AST( tokens[i].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", scotlandYard( tokens, k+1, l - 1 ) ) } );
+						l = bracketIterator( k, n );
+						if( at(j+1).str() == "(" && ( at(k).str() == SYNC_BRACKET || at(k).str() == ASYNC_BRACKET ) ) {
+					 		a = new AST( AT_FUNCTIONDEF, at(j).str(), { d /*return-type*/, b /*parameters*/, 
+					 				new AST( at(i).str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, to_string(block_id++), scotlandYard( k+1, l - 1, block_id ) ) } );
 					 		i = l + 1;
 						} else
 							throw compile_exception( "Unexpected parenthesis-type near function definition", i );
 					} else 
 						throw compile_exception( "Expected function name", i );
-				} else if( tokens[i].str() == "if" ) {
-					if( i+1 < n && tokens[i+1].type == LEFT_BRACKET && tokens[i+1].str() == "(" ) {
-						j = bracketIterator( tokens, i+1, n );
-						b = junkYard( tokens, i+2, j-1 );
+				} else if( at(i).str() == "if" ) {
+					if( i+1 < n && at(i+1).type == LEFT_BRACKET && at(i+1).str() == "(" ) {
+						j = bracketIterator( i+1, n );
+						b = junkYard( i+2, j-1 );
 						if( j < n ) {
-							if( tokens[j].type == LEFT_BRACKET && ( tokens[j].str() == ASYNC_BRACKET || tokens[j].str() == SYNC_BRACKET ) ) {
-								k = bracketIterator( tokens, j, n );
-								c = new AST( tokens[j].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", { scotlandYard( tokens, j+1, k-1 ) } );
+							if( at(j).type == LEFT_BRACKET && ( at(j).str() == ASYNC_BRACKET || at(j).str() == SYNC_BRACKET ) ) {
+								k = bracketIterator( j, n );
+								c = new AST( at(j).str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, to_string(block_id++), { scotlandYard( j+1, k-1, block_id ) } );
 								a = new AST( AT_CONDITIONAL, "", { b, c } );
-								if( k < n && tokens[k].type == KEYWORD && tokens[k].str() == "else" ) {
-									if( k + 1 < n && tokens[k+1].type == LEFT_BRACKET && ( tokens[k+1].str() == ASYNC_BRACKET || tokens[k+1].str() == SYNC_BRACKET ) ) {
-										l = bracketIterator( tokens, k+1, n );
-										d = new AST( tokens[j+1].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", { scotlandYard( tokens, k+2, l-1 ) } );
+								if( k < n && at(k).type == KEYWORD && at(k).str() == "else" ) {
+									if( k + 1 < n && at(k+1).type == LEFT_BRACKET && ( at(k+1).str() == ASYNC_BRACKET || at(k+1).str() == SYNC_BRACKET ) ) {
+										l = bracketIterator( k+1, n );
+										d = new AST( at(j+1).str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, to_string(block_id++), { scotlandYard( k+2, l-1, block_id ) } );
 										a->children.push_back( d );
 										i = l;
 									} else
@@ -435,14 +399,14 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 							throw compile_exception( "Brackets after if-statement are required", i );
 					} else
 						throw compile_exception( "Expected conditional after if-statement", i ); 
-				} else if( tokens[i].str() == "while" ) {
-					if( i + 1 < n && tokens[i+1].type == LEFT_BRACKET && tokens[i+1] == "(" ) {
-						j = bracketIterator( tokens, i+1, n );
+				} else if( at(i).str() == "while" ) {
+					if( i + 1 < n && at(i+1).type == LEFT_BRACKET && at(i+1) == "(" ) {
+						j = bracketIterator( i+1, n );
 						if( j < n ) {
-							b = junkYard( tokens, i+2, j-1 );
-							if( tokens[j].type == LEFT_BRACKET && ( tokens[j].str() == ASYNC_BRACKET || tokens[j].str() == SYNC_BRACKET ) ) {
-								k = bracketIterator( tokens, j, n );
-								a = new AST( AT_LOOP, "while", { b, new AST( tokens[j+1].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, "", { scotlandYard( tokens, j+1, k-1 ) } ) } );
+							b = junkYard( i+2, j-1 );
+							if( at(j).type == LEFT_BRACKET && ( at(j).str() == ASYNC_BRACKET || at(j).str() == SYNC_BRACKET ) ) {
+								k = bracketIterator( j, n );
+								a = new AST( AT_LOOP, "while", { b, new AST( at(j+1).str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, to_string(block_id++), { scotlandYard( j+1, k-1, block_id ) } ) } );
 								i = k;
 							} else 
 								throw compile_exception( "Brackets after while-statement are required", i );
@@ -450,51 +414,51 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 							throw compile_exception( "Empty if-statement", i );
 					} else 
 						throw compile_exception( "Expected conditional after while-statement", i );
-				} else if( tokens[i].str() == "return" ) {
-					if( i + 1 < n && tokens[i+1].type != COMMA ) {
-						l = commaIterator( tokens, i + 1, n );
+				} else if( at(i).str() == "return" ) {
+					if( i + 1 < n && at(i+1).type != COMMA ) {
+						l = commaIterator( i + 1, n );
 						if( l == -1 )
 							l = n;
-						a = new AST( AT_FLOW, "return", { junkYard( tokens, i + 1, l ) } );
+						a = new AST( AT_FLOW, "return", { junkYard( i + 1, l ) } );
 						i = l;
 					} else 
 						throw compile_exception( "Empty return statement", i );
 				} else 
-					throw compile_exception( "Unexpected '" + tokens[i].str() + "' keyword", i );
+					throw compile_exception( "Unexpected '" + at(i).str() + "' keyword", i );
 				break;
 			case LEFT_BRACKET:
-				if( tokens[i].str() == SYNC_BRACKET || tokens[i].str() == ASYNC_BRACKET ) {
-			 		a = new AST( tokens[i].str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK );
-					j = bracketIterator( tokens, i, n );
-			 		a->children = scotlandYard( tokens, i, j - 1 );
+				if( at(i).str() == SYNC_BRACKET || at(i).str() == ASYNC_BRACKET ) {
+			 		a = new AST( at(i).str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK );
+					j = bracketIterator( i, n );
+			 		a->children = scotlandYard( i, j - 1, block_id );
 					i = j;
 					break;
-				} else if(  tokens[i].str() == "<" ) 
-					throw compile_exception( "Unexpected '" + tokens[i].str() + "'" , i );
+				} else if(  at(i).str() == "<" ) 
+					throw compile_exception( "Unexpected '" + at(i).str() + "'" , i );
 			case VARIABLE: case INTEGER: case FLOAT: case STRING: case FUNCTION:
-				k = commaIterator( tokens, i, n );
+				k = commaIterator( i, n );
 				if( k == -1 )
 					k = n;
-				a = junkYard( tokens, i, k );
+				a = junkYard( i, k );
 				i = k;
 			break;
 			case TYPENAME:
-				k = resolveTypename( tokens, b, i, n );
-				if( k < n && tokens[k].type == VARIABLE ) {
-					c = new AST( AT_VARIABLEDEF, tokens[k].str(), { b } );
+				k = resolveTypename( b, i, n );
+				if( k < n && at(k).type == VARIABLE ) {
+					c = new AST( AT_VARIABLEDEF, at(k).str(), { b } );
 					if( k + 1 < n ) {
-						if( tokens[k+1] == "=" ) {
-							l = commaIterator( tokens, k, n );
+						if( at(k+1) == "=" ) {
+							l = commaIterator( k, n );
 							if( l == -1 )
 								l = n;
-							a = junkYard( tokens, k, l );
+							a = junkYard( k, l );
 							r.push_back( c );
 							i = l;
-						} else if( tokens[k+1].type == COMMA ) {
+						} else if( at(k+1).type == COMMA ) {
 							a = c;
 							i = k + 1;
 						} else 
-							throw compile_exception( "Unexpected '" + tokens[k+1].str() + "' in variable definition" , k+1 );
+							throw compile_exception( "Unexpected '" + at(k+1).str() + "' in variable definition" , k+1 );
 					}
 				} else 
 					throw compile_exception( "Expected variable name after datatype specifier", i );
@@ -504,7 +468,7 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 		}
 		r.push_back( a );
 		if( i < n ) {
-			if( tokens[i].type != COMMA ) 
+			if( at(i).type != COMMA ) 
 				throw compile_exception( "Expected comma", i );
 			else
 				i++;
@@ -513,11 +477,11 @@ vector<AST*> scotlandYard( const Tokens& tokens, int i, int n ) {
 	return r;
 }
 
-Tokens shuntingYard( const Tokens& tokens, int i, int n ) {
+Tokens Tokens::shuntingYard( int i, int n ) const {
 	stack<Token> operator_stack;
 	stack<int> comma_stack;
 	Tokens output;
-	for( Tokens::const_iterator t = tokens.begin() + i; t != ( tokens.begin() + n ); t++ ) {
+	for( Tokens::const_iterator t = begin() + i; t != ( begin() + n ); t++ ) {
 		const Token& token = *t;
 		if( !operator_stack.empty() && operator_stack.top().type == LEFT_BRACKET && comma_stack.top() == 0 && token.type != RIGHT_BRACKET )
 			comma_stack.top() = 1;
@@ -568,11 +532,6 @@ Tokens shuntingYard( const Tokens& tokens, int i, int n ) {
 			}
 			comma_stack.pop();
 		}
-		/*cout << "(" << token << "): " ;
-		for( auto& x : output )
-			cout << x << "@";
-		cout << endl;*/
-
 	}
 	while( !operator_stack.empty() ) {
 		if( operator_stack.top().type == LEFT_BRACKET ) 
@@ -594,8 +553,9 @@ AST::AST( ast_type_t t, string v, vector<AST*> c ) {
 }
 
 AST::AST( const Tokens& tokens ) {
+	int block_id = 1;
 	type = AT_ASYNCBLOCK;
-	children = scotlandYard( tokens, 0, tokens.size() );
+	children = tokens.scotlandYard( 0, tokens.size(), block_id );
 }
 
 AST::~AST() { // geen recursieve delete

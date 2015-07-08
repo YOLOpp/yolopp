@@ -23,8 +23,6 @@ enum ast_type_t{
 	AT_FLOW // return, break, continue
 };
 
-
-
 enum token_type {
 	LEFT_BRACKET,
 	RIGHT_BRACKET,
@@ -44,6 +42,12 @@ enum associativity {
 	RIGHT=true
 };
 
+struct Token;
+class Tokens;
+class AST;
+
+ostream& operator<<( ostream& os, const AST& ast );
+
 struct Token : public string {
 	token_type type;
 	string& str() { return *this; }
@@ -54,18 +58,32 @@ class Tokens : public vector<Token> {
 public:
 	Tokens(const string&);
 	Tokens()=default;
+private:
+	int bracketIterator( int i, int n ) const;
+	int resolveTypename( AST*& typename_result, int i, int n ) const;
+	int commaIterator( int i , int n ) const;
+	AST* loopYard( int& n ) const;
+	AST* junkYard( int i, int n ) const;
+	vector<AST*> graveYard( int i, int n ) const;
+	vector<AST*> scotlandYard( int i, int n, int& block_id ) const;
+	Tokens shuntingYard( int i, int n ) const;
+	friend class AST;
 };
 
-struct AST{
+class AST {
+private:
 	ast_type_t type;
 	string val;
 	vector<AST*> children;
+public:
 	AST() = default;
 	AST( ast_type_t t );
 	AST( ast_type_t t, string v, vector<AST*> c );
-	AST(const Tokens&);
-	~AST(void);
+	AST( const Tokens& );
+	~AST();
 	string translate(void);
+	friend class Tokens;
+	friend ostream& operator<<( ostream& os, const AST& ast );
 };
 
 class compile_exception : public exception {
@@ -76,11 +94,4 @@ public:
 	compile_exception( string err, int i );
 };
 
-int bracketIterator( const Tokens& tokens, int i, int n );
-int resolveTypename( const Tokens& tokens, AST*& typename_result, int i, int n );
-AST* loopYard( const Tokens& postfix, int& n );
-AST* junkYard( const Tokens& tokens, int i, int n );
-vector<AST*> graveYard( const Tokens& tokens, int i, int n );
-vector<AST*> scotlandYard( const Tokens& tokens, int i, int n );
-Tokens shuntingYard( const Tokens& tokens, int i, int n );
-ostream& operator<<( ostream& os, const AST& ast );
+
