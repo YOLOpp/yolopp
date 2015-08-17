@@ -30,7 +30,7 @@ Obscure things
 	- `"yolo++y"*2.5="yolo++yyolo++yyolo"`
 	- `"yolo++y"*2.2="yolo++yyolo++yy"` (length of string a = 7, so 2.2*7=15.4, rounded 15)
 	- `"yolo++y"/2="yolo++y"*(1/2)="yolo"`
-	- `"yolo++y"+"y++oloy"="yolo++++oloy"` (string concatenation)
+	- `"yolo++y"+"y++oloy"="yolo++yy++oloy"` (string concatenation)
 	- `"yolo++y"-"y++oloy"="yolo"` (loop backwards over string b, deleting each character from string a until the beginning of a is reached)
 - array arithmetic is supported, mostly vector operations. (##TODO more docs)
 
