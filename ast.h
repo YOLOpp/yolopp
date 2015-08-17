@@ -2,13 +2,15 @@
 #include <vector>
 #include <string>
 #include <exception>
+#include <stack>
+#include <sstream>
 
 using namespace std;
 
 enum ast_type_t{
-	AT_FUNCTIONCALL, //val is function name, children are arguments
-	AT_CONDITIONAL, //if statement; first child is condition (AT_EXPR), second child is block (AT_(A)SYNCBLOCK)
-	AT_LOOP, //loop var, from, to, block
+	AT_FUNCTIONCALL, // val is function name; children are arguments
+	AT_CONDITIONAL, //if statement; first child is condition, second child is block (AT_(A)SYNCBLOCK)
+	AT_LOOP, // val is (while|for); while: condition, block
 	AT_WORD, //variable
 	AT_NUMBER, //number
 	AT_STRING, //string
@@ -17,8 +19,8 @@ enum ast_type_t{
 	//AT_LIST,
 	AT_SYNCBLOCK, //children are the lines/statements of the block
 	AT_ASYNCBLOCK, //children are the lines/statements of the block
-	AT_FUNCTIONDEF, //function name, return value, AT_ARRAY of arguments, body block (AT_(A)SYNCBLOCK)
-	AT_VARIABLEDEF, //variable name, type
+	AT_FUNCTIONDEF, // val is function name; children are return value, AT_ARRAY of arguments, body block (AT_(A)SYNCBLOCK)
+	AT_VARIABLEDEF, // val is variable name; child is type
 	AT_DATATYPE,
 	AT_FLOW // return, break, continue
 };
@@ -45,6 +47,9 @@ enum associativity {
 struct Token;
 class Tokens;
 class AST;
+
+typedef stack<AST*> TranslatePath;
+
 
 ostream& operator<<( ostream& os, const AST& ast );
 
@@ -82,6 +87,12 @@ public:
 	AST( const Tokens& );
 	~AST();
 	string translate(void);
+	void translateBlock( stringstream& ss, TranslatePath&, int indent );
+	void translateItem( stringstream& ss, TranslatePath&, int indent, bool allow_block = true );
+	void printFunctionHeader( stringstream& ss, string x );
+	void pullFunctions( stringstream& ss, TranslatePath& translatePath );
+	string decodeTypename();
+	static string findFunctionName( string name, TranslatePath translatePath );
 	friend class Tokens;
 	friend ostream& operator<<( ostream& os, const AST& ast );
 };
@@ -94,4 +105,9 @@ public:
 	compile_exception( string err, int i );
 };
 
-
+class translate_exception : public exception {
+	string err_str;
+	virtual const char* what() const noexcept;
+public:
+	translate_exception( string err );
+};

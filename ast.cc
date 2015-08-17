@@ -285,7 +285,7 @@ AST* Tokens::loopYard( int& n ) const {
 				parameters = 1;
 			else
 				parameters = 2;
-			h->val = "operator" + at(n); // temporary
+			h->val = "@operator" + at(n); // temporary
 			h->type = AT_FUNCTIONCALL;
 			break;
 		case FUNCTION: {
@@ -555,6 +555,7 @@ AST::AST( ast_type_t t, string v, vector<AST*> c ) {
 AST::AST( const Tokens& tokens ) {
 	int block_id = 1;
 	type = AT_ASYNCBLOCK;
+	val = "0";
 	children = tokens.scotlandYard( 0, tokens.size(), block_id );
 }
 
@@ -583,6 +584,7 @@ ostream& operator<<( ostream& os, const AST& ast ) {
 	return os << ")";
 }
 
+/*
 int main() {
 	//string s = "yolo = x <-> y / 5.0 * f(3,\"6\")";
 	//string s = "yolo = <4,5,6>*9";
@@ -597,4 +599,4 @@ int main() {
 	cout << endl;
 
 	cout << AST(t) << endl;
-}
+}*/
