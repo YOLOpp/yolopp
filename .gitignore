@@ -1,1 +1,5 @@
 main
+*.o
+count
+*._temp.cpp
+y++
