@@ -63,11 +63,13 @@ int main(int argc,char **argv){
 	string trans=AST(Tokens(source)).translate();
 	outf.write(trans.data(),trans.size());
 
+	cerr << tempfname << endl;
+
 	outf.flush();
 
 	pid_t pid=fork();
 	if(pid==0){
-		execlp("g++","-Wall","-Wextra","-pedantic","-O3","-std=c++11","-lgmp","-lgmpxx",tempfname.c_str(),"-o",outfname.c_str(),NULL);
+		execlp("clang++","clang++","-o",outfname.c_str(),tempfname.c_str(),"y_lib.o","-Wall","-Wextra","-pedantic","-O3","-std=c++11","-lgmp","-lgmpxx",NULL);
 		perror("execlp");
 		return 1;
 	}

@@ -15,20 +15,19 @@ set<string> functionNames = { "f_0_print", "f_0_input", "f_0_to_string" };
 string AST::translate(void){
 	stringstream ss;
 	TranslatePath translatePath;
-	// more includes?
-	ss << "#include <iostream>\n#include <string>\n#include <gmp.h>\n#include <gmpxx.h>\n";
+	ss << "#include \"y_lib.h\"\n";
 	// global stuff
-	ss << "typedef mpz_class t_int;\n";
+	/*ss << "typedef mpz_class t_int;\n";
 	ss << "t_int v_argc;\nchar** v_argv;\n";
 	ss << "void f_0_print(std::string s){std::cout<<s;}\nstd::string f_0_input(void){std::string s;std::getline(std::cin,s);return s;}\n";
-	ss << "std::string f_0_to_string(t_int x){return x.get_str();}\n";
+	ss << "std::string f_0_to_string(t_int x){return x.get_str();}\n";*/
 
 	// functions
 	pullFunctions( ss, translatePath );
 	// main
 	ss << "int main( int argc, char **argv ) {\n";
 	// do global stuff
-	ss << "\tv_argc = argc;\n\tv_argv = argv;\n\t";
+	ss << "\tv_argc = argc;\n\tfor(int i = 0; i < argc; i++ ) v_argv.emplace_back( argv[i] );\n\t";
 	// translate main
 	translateBlock( ss, translatePath, 1 );
 	ss<<"\n}\n";
@@ -36,8 +35,32 @@ string AST::translate(void){
 }
 
 string AST::decodeTypename() {
-	assert( type == AT_DATATYPE );
-	return "t_int"; // temp
+	string r;
+	bool comma = false;
+	switch( type ) {
+		case AT_ARRAY:
+			r = "std::tuple<";
+			for( AST* child : children ) {
+				if( comma )
+					r += ",";
+				comma = true;
+				r += child->decodeTypename();
+			}
+			r += ">";
+			break;
+		case AT_LIST:
+			r = "std::vector<" + children.at(0)->decodeTypename() + ">";
+			break;
+		case AT_SET:
+			r = "std::set<" + children.at(0)->decodeTypename() + ">";
+			break;
+		case AT_DATATYPE:
+			r = "t_" + val;
+		break;
+		default:
+			translate_exception( "Node " + to_string(type) + " is not a typename" );
+	}
+	return r;
 }
 
 void AST::printFunctionHeader( stringstream& ss, string x ) {
@@ -133,6 +156,19 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 			}
 		}
 		break;
+		case AT_CONDITIONAL:
+			if( typeless ) {
+				ss << "if( ";
+				children.at(0)->translateItem( ss, translatePath, indent, false );
+				ss << " )";
+				children.at(1)->translateBlock( ss, translatePath, indent );
+				if( children.size() > 2 ) { // exists an else condition
+					ss << " else";
+					children.at(2)->translateBlock( ss, translatePath, indent );
+				}
+			} else
+				throw translate_exception( "Unexpected block" );
+		break;
 		case AT_LOOP:
 		    if( typeless ) {
 				if( val == "while" ) {
@@ -156,7 +192,6 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 			ss << "v_" << val;
 		break;
 		//case AT_CONDITIONAL:
-		//case AT_LOOP:
 		//case AT_ARRAY:
 		case AT_SYNCBLOCK: case AT_ASYNCBLOCK:
 			if( typeless )
@@ -180,11 +215,12 @@ translate_exception::translate_exception( string err ) {
 	err_str = move( err );
 }
 
-int main() {
-	string s = "int i = 0, while( i < 10 ) [ print(to_string(i)), i = i + 1 ]";
+/*int main() {
+	//string s = "int i = 0, while( i < 10 ) [ print(to_string(i)), i = i + 1 ]";
+	string s = "tuple(int, int) coordinates = (5, 7), x = coordinates @ 0, y = coordinates @ 1, (x, y) = (x+1, y+1) "; // std::tie / std::forward_as_tuple(ar,br) for tuples
 	Tokens t(s);
 	AST ast(t);
 	std::cout << ast<< std::endl;
 	std::ofstream output("output.cc");
 	output << ast.translate() << endl;
-}
+}*/

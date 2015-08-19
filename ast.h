@@ -9,14 +9,14 @@ using namespace std;
 
 enum ast_type_t{
 	AT_FUNCTIONCALL, // val is function name; children are arguments
-	AT_CONDITIONAL, //if statement; first child is condition, second child is block (AT_(A)SYNCBLOCK)
+	AT_CONDITIONAL, //if statement; first child is condition, second child is if block (AT_(A)SYNCBLOCK), third is else block
 	AT_LOOP, // val is (while|for); while: condition, block
 	AT_WORD, //variable
 	AT_NUMBER, //number
 	AT_STRING, //string
-	AT_ARRAY, //children are members
-	//AT_SET,
-	//AT_LIST,
+	AT_ARRAY, // (tuple) children are members
+	AT_SET, // {set}
+	AT_LIST, // [list]
 	AT_SYNCBLOCK, //children are the lines/statements of the block
 	AT_ASYNCBLOCK, //children are the lines/statements of the block
 	AT_FUNCTIONDEF, // val is function name; children are return value, AT_ARRAY of arguments, body block (AT_(A)SYNCBLOCK)

@@ -1,0 +1,30 @@
+function int factorial( int n ) [
+	if( n < 0 ) [
+		return -1
+	],
+	int r = 1,
+	while( n > 0 ) [
+		r *= n,
+		n -= 1
+	],
+	return r
+],
+
+function frac pi_over_2( int m ) [
+	frac r = 0,
+	for?( int k = 0, k <= m, k += 1 ) {
+		r += factorial( k ) / factorial( factorial( 2k + 1 ) )
+	},
+	return r
+],
+
+function frac pi_square_over_6( int m ) [
+	frac r = 0,
+	for( int k = 1, k <= m, k += 1 ) {
+		r += 1 / ( k**2 )
+	},
+	return r
+],
+
+print( to_string( to_float( pi_over_2( 6 ) ) ) + "\n" )
+print( to_string( to_float( pi_square_over_6( 100 ) ) ) + "\n" )

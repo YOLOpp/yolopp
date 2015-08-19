@@ -1,0 +1,13 @@
+function int factorial( int n ) [
+	int r = 1,
+	if( n < 0 ) [
+		return -1
+	],
+	while( n > 0 ) [
+		r *= n,
+		n -= 1
+	],
+	return r
+],
+
+print(to_string(factorial(6)))

@@ -54,7 +54,7 @@ const map<string, pair<int, bool> > datatypes {
 	{ "int", make_pair(-1, false) },
 	{ "string", make_pair(0, false) },
 	{ "frac", make_pair(-1, false) },
-	{ "array", make_pair(INT_MIN, true) },
+	{ "tuple", make_pair(INT_MIN, true) },
 	{ "complex", make_pair(-1, true) }
 };
 
@@ -384,7 +384,7 @@ vector<AST*> Tokens::scotlandYard( int i, int n, int& block_id ) const {
 								c = new AST( at(j).str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, to_string(block_id++), { scotlandYard( j+1, k-1, block_id ) } );
 								a = new AST( AT_CONDITIONAL, "", { b, c } );
 								if( k < n && at(k).type == KEYWORD && at(k).str() == "else" ) {
-									if( k + 1 < n && at(k+1).type == LEFT_BRACKET && ( at(k+1).str() == ASYNC_BRACKET || at(k+1).str() == SYNC_BRACKET ) ) {
+									if( k + 1 < n && at(k+1).type == LEFT_BRACKET && ( at(k+1).str() == ASYNC_BRACKET || at(k+1).str() == SYNC_BRACKET ) ) { // TODO: allow elseif without brackets
 										l = bracketIterator( k+1, n );
 										d = new AST( at(j+1).str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, to_string(block_id++), { scotlandYard( k+2, l-1, block_id ) } );
 										a->children.push_back( d );
