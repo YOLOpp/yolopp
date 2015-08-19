@@ -98,16 +98,16 @@ public:
 };
 
 class compile_exception : public exception {
+public:
 	string err_str;
 	int token_id;
 	virtual const char* what() const noexcept;
-public:
 	compile_exception( string err, int i );
 };
 
 class translate_exception : public exception {
+public:
 	string err_str;
 	virtual const char* what() const noexcept;
-public:
 	translate_exception( string err );
 };

@@ -10,7 +10,7 @@ bool isBlock(ast_type_t type){
 	return type==AT_SYNCBLOCK||type==AT_ASYNCBLOCK||type==AT_FUNCTIONDEF;
 }
 
-set<string> functionNames = { "f_0_print", "f_0_input", "f_0_to_string" };
+set<string> functionNames = { "f_0_print", "f_0_input", "f_0_to_string", "f_0_to_float", "f_0_to_rat" };
 
 string AST::translate(void){
 	stringstream ss;
@@ -72,8 +72,8 @@ void AST::printFunctionHeader( stringstream& ss, string x ) {
 		if( comma )
 			ss << ", ";
 		comma = true;
-		ss << " " << argument->children.at(0)->decodeTypename();
-		ss << "v_" << argument->val;
+		ss << argument->children.at(0)->decodeTypename();
+		ss << " v_" << argument->val;
 	}
 	ss << " )";
 }
@@ -93,7 +93,8 @@ void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) {
 	for( AST* node : children ) {
 		if( node->type == AT_FUNCTIONDEF ) {
 			node->printFunctionHeader( ss, val );
-			node->children.at(2)->translateBlock( ss, translatePath, 1 );
+			node->children.at(2)->translateBlock( ss, translatePath, 0 );
+			ss << endl;
 		}
 	}
 	translatePath.pop();
@@ -144,6 +145,8 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << "))";
 			} else {
+				if( functionName == "operator-u" )
+					functionName = "operator-";
 				ss << functionName << "( ";
 				bool comma = false;
 				for( AST* argument : children ) {
@@ -185,8 +188,13 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 		case AT_VARIABLEDEF:
 			ss << children.at(0)->decodeTypename() << " v_" << val;
 		break;
-		case AT_NUMBER: case AT_STRING:
-			ss << val; //temp
+		case AT_NUMBER: 
+			if( val.find('.') == string::npos )
+				ss << "t_int";
+			else
+				ss << "t_float";
+		case AT_STRING:
+			ss << "(" << val << ")"; //temp
 		break;
 		case AT_WORD:
 			ss << "v_" << val;
@@ -198,6 +206,15 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				translateBlock( ss, translatePath, indent );
 			else
 				throw translate_exception( "Unexpected block" );
+		break;
+		case AT_FLOW:
+			if( typeless ) {
+				if( val == "return" ) {
+					ss << "return ";
+					children.at(0)->translateItem( ss, translatePath, indent, false ); 
+				}
+			} else
+				throw translate_exception( "Unexpected flow statement" );
 		break;
 		default:
 			throw translate_exception( "Unexpected node " + to_string( type ) + " as translation item" );

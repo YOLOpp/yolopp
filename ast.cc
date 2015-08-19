@@ -53,7 +53,8 @@ const map<string, pair<int, bool> > datatypes {
 	{ "null", make_pair(0,false) }, // for functions returning nothing
 	{ "int", make_pair(-1, false) },
 	{ "string", make_pair(0, false) },
-	{ "frac", make_pair(-1, false) },
+	{ "rat", make_pair(-1, false) },
+	{ "float", make_pair(-1, false) },
 	{ "tuple", make_pair(INT_MIN, true) },
 	{ "complex", make_pair(-1, true) }
 };
@@ -159,12 +160,12 @@ Tokens::Tokens( const string& s ) {
 						throw compile_exception( "Unexpected '.'", i );
 					t.push_back( s[i] );
 					terminate = false;
-				} else if( !isdigit( s[i] ) && ( mode == MODE_INT || mode == MODE_FLOAT ) ) // filter letters from numbers
-					throw compile_exception( "Unexpected '" + string( 1, s[i] ) + "' in number", i );
-				else if( operator_precedence.find( string( 1, s[i] ) ) != operator_precedence.end() ) { // single-character operator
+				} else if( operator_precedence.find( string( 1, s[i] ) ) != operator_precedence.end() ) { // single-character operator
 					u.push_back( s[i] );
 					u.type = OPERATOR;
-				} else {
+				} else if( !isdigit( s[i] ) && ( mode == MODE_INT || mode == MODE_FLOAT ) ) // filter letters from numbers
+					throw compile_exception( "Unexpected '" + string( 1, s[i] ) + "' in number", i );
+				else {
 					t.push_back( s[i] );
 					terminate = false;
 				}
@@ -278,7 +279,8 @@ AST* Tokens::loopYard( int& n ) const {
 	stack<AST*> reverse;
 	n--;
 	if( n < 0 ) 
-		throw compile_exception( "You done goofed", -1 );
+		throw compile_exception( "Expecting more tokens ( Hint: += / -= / ... are no legal operators )", -1 );
+
 	switch( at(n).type ) { /*KEYWORDS NOT YET SUPPORTED*/
 		case OPERATOR:
 			if( get<2>( operator_precedence.at(at(n).str()) ) == true ) // is unary
@@ -369,7 +371,7 @@ vector<AST*> Tokens::scotlandYard( int i, int n, int& block_id ) const {
 						if( at(j+1).str() == "(" && ( at(k).str() == SYNC_BRACKET || at(k).str() == ASYNC_BRACKET ) ) {
 					 		a = new AST( AT_FUNCTIONDEF, at(j).str(), { d /*return-type*/, b /*parameters*/, 
 					 				new AST( at(i).str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, to_string(block_id++), scotlandYard( k+1, l - 1, block_id ) ) } );
-					 		i = l + 1;
+					 		i = l;
 						} else
 							throw compile_exception( "Unexpected parenthesis-type near function definition", i );
 					} else 
@@ -477,6 +479,7 @@ vector<AST*> Tokens::scotlandYard( int i, int n, int& block_id ) const {
 	return r;
 }
 
+// converts a vector of tokens in infix notation to postfix notation
 Tokens Tokens::shuntingYard( int i, int n ) const {
 	stack<Token> operator_stack;
 	stack<int> comma_stack;
@@ -556,7 +559,12 @@ AST::AST( const Tokens& tokens ) {
 	int block_id = 1;
 	type = AT_ASYNCBLOCK;
 	val = "0";
-	children = tokens.scotlandYard( 0, tokens.size(), block_id );
+	try {
+		children = tokens.scotlandYard( 0, tokens.size(), block_id );
+	} catch( compile_exception& e ) {
+		cerr << "(" << tokens.at(e.token_id).str() << ")" << e.what() << endl;
+		throw e;
+	}
 }
 
 AST::~AST() { // geen recursieve delete

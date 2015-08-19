@@ -11,6 +11,7 @@
 typedef std::string t_string;
 typedef mpz_class t_int;
 typedef mpq_class t_rat;
+typedef mpf_class t_float;
 
 
 /*class t_string : public std::string {
@@ -96,6 +97,10 @@ t_frac t_frac::operator/( t_frac );
 void f_0_print( t_string s );
 t_string f_0_input(void);
 t_string f_0_to_string(t_int x);
+t_string f_0_to_string(t_float x);
+t_string f_0_to_string(t_rat x);
+t_float f_0_to_float(t_rat x);
+t_rat f_0_to_rat( t_int x );
 
 extern t_int v_argc;
 extern t_list<t_string> v_argv;
