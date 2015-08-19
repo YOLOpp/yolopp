@@ -46,7 +46,8 @@ int main(int argc,char **argv){
 		cerr<<"Could not open file '"<<srcfname<<"'"<<endl;
 		return 1;
 	}
-	ofstream outf(tempnamefor(outfname));
+	string tempfname=tempnamefor(outfname);
+	ofstream outf(tempfname);
 	if(!srcf){
 		cerr<<"Could not open temporary file for '"<<outfname<<"'"<<endl;
 		return 1;
@@ -60,11 +61,13 @@ int main(int argc,char **argv){
 	srcf.close();
 
 	string trans=AST(Tokens(source)).translate();
-	outf.write(source.data(),source.size());
+	outf.write(trans.data(),trans.size());
+
+	outf.flush();
 
 	pid_t pid=fork();
 	if(pid==0){
-		execlp("g++","-Wall","-Wextra","-pedantic","-O3","-std=c++11",srcfname.c_str(),"-o",outfname.c_str());
+		execlp("g++","-Wall","-Wextra","-pedantic","-O3","-std=c++11","-lgmp","-lgmpxx",tempfname.c_str(),"-o",outfname.c_str());
 	}
 	while(true){
 		int status;
