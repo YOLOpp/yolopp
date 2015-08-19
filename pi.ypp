@@ -10,16 +10,6 @@ function int factorial( int n ) [
 	return r
 ],
 
-function rat pi_over_2( int m ) [
-	rat r = 0,
-	int k = 0,
-	while( k <= m ) [
-		r = r + to_rat( factorial( k ) ) / to_rat( factorial( factorial( 2*k + 1 ) ) ),
-		k = k + 1
-	],
-	return r
-],
-
 function rat pi_square_over_6( int m ) [
 	rat r = 0,
 	int k = 1,
@@ -30,5 +20,4 @@ function rat pi_square_over_6( int m ) [
 	return r
 ],
 
-print( to_string( to_float( pi_over_2( 5 ) ) ) + "\n" ),
-print( to_string( to_float( pi_square_over_6( 3 ) ) ) + "\n" )
+print( to_string( to_float( pi_square_over_6( 100000 ) ) ) + "\n" )

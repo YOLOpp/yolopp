@@ -20,7 +20,7 @@ t_string f_0_to_string( t_int x ) {
 t_string f_0_to_string( t_float x ) {
 	mp_exp_t e;
 	t_string s = x.get_str( e );
-	return s + "*10^" + std::to_string(e);
+	return "0." + s + "*10^" + std::to_string(e);
 }
 
 t_string f_0_to_string( t_rat x ) {
