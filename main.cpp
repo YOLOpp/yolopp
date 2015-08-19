@@ -68,7 +68,10 @@ int main(int argc,char **argv){
 	pid_t pid=fork();
 	if(pid==0){
 		execlp("g++","-Wall","-Wextra","-pedantic","-O3","-std=c++11","-lgmp","-lgmpxx",tempfname.c_str(),"-o",outfname.c_str());
+		perror("execlp");
+		return 1;
 	}
+	cerr<<"(pid="<<pid<<')'<<endl;
 	while(true){
 		int status;
 		pid_t w=waitpid(pid,&status,0);
