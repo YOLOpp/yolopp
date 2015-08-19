@@ -20,9 +20,9 @@ int main(int argc,char **argv){
 	int i,j;
 	set<char> options;
 	vector<string> args;
-	for(i=0;i<argc;i++){
+	for(i=1;i<argc;i++){
 		if(argv[i][0]=='-'){
-			for(j=0;argv[i][j];j++)options.insert(argv[i][j]);
+			for(j=1;argv[i][j];j++)options.insert(argv[i][j]);
 		} else {
 			args.emplace_back(argv[i]);
 		}
