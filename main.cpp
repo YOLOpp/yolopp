@@ -67,7 +67,7 @@ int main(int argc,char **argv){
 
 	pid_t pid=fork();
 	if(pid==0){
-		execlp("g++","-Wall","-Wextra","-pedantic","-O3","-std=c++11","-lgmp","-lgmpxx",tempfname.c_str(),"-o",outfname.c_str());
+		execlp("g++","-Wall","-Wextra","-pedantic","-O3","-std=c++11","-lgmp","-lgmpxx",tempfname.c_str(),"-o",outfname.c_str(),NULL);
 		perror("execlp");
 		return 1;
 	}
