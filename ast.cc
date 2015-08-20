@@ -11,10 +11,11 @@
 #include "ast.h"
 
 const map< string, tuple< int, associativity, bool > > operator_precedence {
-	{"!",make_tuple(1,RIGHT,true)},		// sort list
-	{"?",make_tuple(1,RIGHT,true)},		// shuffle list
-	{"<->",make_tuple(2,LEFT,false)},	// swap elements
-	{"<~>",make_tuple(2,RIGHT,false)},	//
+	{"!",make_tuple(0,RIGHT,true)},		// sort list
+	{"?",make_tuple(0,RIGHT,true)},		// shuffle list
+	{"<->",make_tuple(1,LEFT,false)},	// swap elements
+	{"<~>",make_tuple(1,RIGHT,false)},	//
+	{"@",make_tuple(2,LEFT,false)},		// list indexing
 	{"^",make_tuple(3,RIGHT,false)},	// exponentiation
 	{"-u",make_tuple(4,RIGHT,true)},	// unary minus
 	{"*",make_tuple(5,LEFT,false)},		// multiplication
@@ -56,7 +57,9 @@ const map<string, pair<int, bool> > datatypes {
 	{ "rat", make_pair(-1, false) },
 	{ "float", make_pair(-1, false) },
 	{ "tuple", make_pair(INT_MIN, true) },
-	{ "complex", make_pair(-1, true) }
+	{ "complex", make_pair(-1, true) },
+	{ "list", make_pair(0, true ) },
+	{ "set", make_pair(0, true ) }
 };
 
 const string ASYNC_BRACKET = "{";
@@ -140,15 +143,15 @@ Tokens::Tokens( const string& s ) {
 				} else if( s[i] == '{' || s[i] == '[' || s[i] == '(' ) { // opening brackets
 					u.push_back( s[i] );
 					u.type = LEFT_BRACKET;
-				} else if( s[i] == '}' || s[i] == ']' || s[i] == ')' || s[i] == '>' ) { // closing brackets
+				} else if( s[i] == '}' || s[i] == ']' || s[i] == ')' /*|| s[i] == '>'*/ ) { // closing brackets
 					if( s[i] == '}' )
 						u.push_back( '{' );
 					else if( s[i] == ']' )
 						u.push_back( '[' );
 					else if( s[i] == ')')
 						u.push_back( '(' );
-					else
-						u.push_back( '<' );
+					/*else
+						u.push_back( '<' );*/
 					u.type = RIGHT_BRACKET;
 				} else if( s[i] == ',' ) { // argument seperator
 					u.push_back( ',' );
@@ -242,11 +245,11 @@ int Tokens::commaIterator( int i , int n ) const {
 			brackets--;
 			if( brackets < 0 )
 				return -1;
-		} else if( at(i).type == COMMA )
+		} else if( at(i).type == COMMA && brackets == 0 )
 			return i;
 		i++;
 	}
-	return -1;
+	return n;
 }
 
 int Tokens::resolveTypename( AST*& typename_result, int i, int n ) const { // does not support datatype parameters yet
@@ -269,7 +272,7 @@ int Tokens::resolveTypename( AST*& typename_result, int i, int n ) const { // do
 		i++;
 	}
 	if( !isFinal ) 
-		throw compile_exception( " Expected datatype", i );
+		throw compile_exception( "Expected datatype", i );
 	return i; // return index past last datatype specifier
 }
 
@@ -312,6 +315,22 @@ AST* Tokens::loopYard( int& n ) const {
 			h->val = at(n);
 			parameters = 0;
 			break;
+		case KEYWORD: {
+			stringstream ss( at(n) );
+			string a;
+			ss >> a;
+			if( a.compare( 0, 4, "init" ) == 0 ) {
+				if( a == "init-list" )
+					h->type = AT_INLINE_LIST;
+				else if( a == "init-set" )
+					h->type = AT_INLINE_SET;
+				else
+					throw compile_exception( "Unknown initaliser list", -1 );
+				h->val = at(n);
+				ss >> parameters;
+				break;
+			}
+		}
 		default:
 			throw compile_exception( "Unknown/Unsupported token type", -1 );
 			h = nullptr;
@@ -523,9 +542,14 @@ Tokens Tokens::shuntingYard( int i, int n ) const {
 					throw compile_exception( "Missing left-parenthesis", i );
 			}
 			operator_stack.pop();
-			if( token.str() == "<" ) {
+			if( token.str() == "[" ) {
 				Token t;
-				t.str() = "array-init " + to_string( comma_stack.top() );
+				t.str() = "init-list " + to_string( comma_stack.top() );
+				t.type = KEYWORD;
+				output.push_back( t );
+			} else if( token.str() == "{" ) {
+				Token t;
+				t.str() = "init-set " + to_string( comma_stack.top() );
 				t.type = KEYWORD;
 				output.push_back( t );
 			} else if( !operator_stack.empty() && operator_stack.top().type == FUNCTION ) {
@@ -545,6 +569,48 @@ Tokens Tokens::shuntingYard( int i, int n ) const {
 	return output;
 }
 
+bool AST::compare( const AST* other ) const {
+	if( type != other->type || val != other->val || children.size() != other->children.size() )
+		return false;
+	for( size_t i = 0; i < children.size(); i++ )
+		if( !children.at(i)->compare( other->children.at(i) ) )
+			return false;
+	return true;
+}
+
+AST* AST::getType() const {
+	switch( type ) {
+		case AT_WORD: case AT_FUNCTIONCALL:
+			throw compile_exception( "Yet to implement: Type deduction for variables and functions", -1 );
+			break;
+		case AT_NUMBER: 
+			return new AST( AT_DATATYPE, val.find('.') == string::npos ? "int": "float" , {} );
+			break;
+		case AT_STRING:
+			return new AST( AT_DATATYPE, "string", {} );
+			break;
+		case AT_INLINE_SET: case AT_INLINE_LIST: 
+			if( children.size() == 0 )
+				throw compile_exception( "Type Error: Could not deduce type of empty set", -1 );
+			else {
+				AST *r = children.at(0)->getType(), *c;
+				bool b;
+				for( size_t i = 1; i < children.size(); i++ ) {
+					c = children.at(1)->getType();
+					b = r->compare( c );
+					delete c->cascade();
+					if( !b )
+						throw compile_exception( "Type Error: Could not deduce type of inline list/set", -1 );
+				}
+				return new AST( AT_DATATYPE, type == AT_INLINE_LIST ? "list" : "set", {r} );
+			}
+			break;
+		default:
+			throw compile_exception( "Type Error: Node " + to_string(type) + " has no datatype", -1 );
+	}
+	return nullptr;
+}
+
 AST::AST( ast_type_t t ) {
 	type = t;
 }
@@ -562,13 +628,21 @@ AST::AST( const Tokens& tokens ) {
 	try {
 		children = tokens.scotlandYard( 0, tokens.size(), block_id );
 	} catch( compile_exception& e ) {
-		cerr << "(" << tokens.at(e.token_id).str() << ")" << e.what() << endl;
+		if( e.token_id >= 0 )
+			cerr << "(" << tokens.at(e.token_id).str() << ")";
+		cerr << e.what() << endl;
 		throw e;
 	}
 }
 
-AST::~AST() { // geen recursieve delete
+AST::~AST() { // non-recursive delete
 
+}
+
+AST* AST::cascade() {
+	for( auto child: children )
+		delete child->cascade();
+	return this;
 }
 
 const char* compile_exception::what() const noexcept {
@@ -591,20 +665,3 @@ ostream& operator<<( ostream& os, const AST& ast ) {
 	}
 	return os << ")";
 }
-
-/*
-int main() {
-	//string s = "yolo = x <-> y / 5.0 * f(3,\"6\")";
-	//string s = "yolo = <4,5,6>*9";
-	//string s = "func()";
-	//string s = "function int abs( complex int z ) [ int a = sqrt( z * conj(z) ), return a ]";
-	//string s = "if( swag ) [ yolo() ]";
-	//string s = "if( foo && bar ) { func() } else [ bar() ]";
-	string s = "int i = 0, while( i < 10 ) [ print(i), i = i + 1 ]";
-	Tokens t(s);
-	for( auto& i : t )
-		cout << i << ";";
-	cout << endl;
-
-	cout << AST(t) << endl;
-}*/

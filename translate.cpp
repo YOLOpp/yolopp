@@ -37,9 +37,21 @@ string AST::translate(void){
 string AST::decodeTypename() {
 	string r;
 	bool comma = false;
-	switch( type ) {
-		case AT_ARRAY:
-			r = "std::tuple<";
+	if( type == AT_ARRAY ) {
+		r = "std::tuple<";
+		for( AST* child : children ) {
+			if( comma )
+				r += ",";
+			comma = true;
+			r += child->decodeTypename();
+		}
+		r += ">";
+	} else if( type == AT_DATATYPE ) {
+		if( val == "set" || val == "list" ) {
+			if( val == "set" )
+				r = "std::set<";
+			else
+				r = "std::vector<";
 			for( AST* child : children ) {
 				if( comma )
 					r += ",";
@@ -47,19 +59,10 @@ string AST::decodeTypename() {
 				r += child->decodeTypename();
 			}
 			r += ">";
-			break;
-		case AT_LIST:
-			r = "std::vector<" + children.at(0)->decodeTypename() + ">";
-			break;
-		case AT_SET:
-			r = "std::set<" + children.at(0)->decodeTypename() + ">";
-			break;
-		case AT_DATATYPE:
-			r = "t_" + val;
-		break;
-		default:
-			translate_exception( "Node " + to_string(type) + " is not a typename" );
-	}
+		} else 
+			r = "t_" + val;		
+	} else 
+		translate_exception( "Node " + to_string(type) + " is not a typename" );
 	return r;
 }
 
@@ -144,6 +147,12 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				ss << ")=(";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << "))";
+			} else if( functionName == "operator@" ) {
+				ss << "("; 
+				children.at(0)->translateItem( ss, translatePath, indent, false );
+				ss << ").at((";
+				children.at(1)->translateItem( ss, translatePath, indent, false );
+				ss << ").get_ui())";
 			} else {
 				if( functionName == "operator-u" )
 					functionName = "operator-";
@@ -199,8 +208,20 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 		case AT_WORD:
 			ss << "v_" << val;
 		break;
-		//case AT_CONDITIONAL:
-		//case AT_ARRAY:
+		case AT_INLINE_LIST: case AT_INLINE_SET: {
+			AST* r = getType();
+			ss << r->decodeTypename() << "({ ";
+			bool comma = false;
+			for( AST* child: children ) {
+				if( comma )
+					ss << ", ";
+				comma = true;
+				child->translateItem( ss, translatePath, indent, false );
+			}
+			ss << " })";
+			delete r->cascade();
+		}
+		break;
 		case AT_SYNCBLOCK: case AT_ASYNCBLOCK:
 			if( typeless )
 				translateBlock( ss, translatePath, indent );
@@ -231,13 +252,3 @@ const char* translate_exception::what() const noexcept {
 translate_exception::translate_exception( string err ) {
 	err_str = move( err );
 }
-
-/*int main() {
-	//string s = "int i = 0, while( i < 10 ) [ print(to_string(i)), i = i + 1 ]";
-	string s = "tuple(int, int) coordinates = (5, 7), x = coordinates @ 0, y = coordinates @ 1, (x, y) = (x+1, y+1) "; // std::tie / std::forward_as_tuple(ar,br) for tuples
-	Tokens t(s);
-	AST ast(t);
-	std::cout << ast<< std::endl;
-	std::ofstream output("output.cc");
-	output << ast.translate() << endl;
-}*/

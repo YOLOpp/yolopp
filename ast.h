@@ -15,8 +15,8 @@ enum ast_type_t{
 	AT_NUMBER, //number
 	AT_STRING, //string
 	AT_ARRAY, // (tuple) children are members
-	AT_SET, // {set}
-	AT_LIST, // [list]
+	AT_INLINE_SET, // {set}
+	AT_INLINE_LIST, // [list]
 	AT_SYNCBLOCK, //children are the lines/statements of the block
 	AT_ASYNCBLOCK, //children are the lines/statements of the block
 	AT_FUNCTIONDEF, // val is function name; children are return value, AT_ARRAY of arguments, body block (AT_(A)SYNCBLOCK)
@@ -85,13 +85,16 @@ public:
 	AST( ast_type_t t );
 	AST( ast_type_t t, string v, vector<AST*> c );
 	AST( const Tokens& );
-	~AST();
+	~AST(); // non-recursive delete
 	string translate(void);
 	void translateBlock( stringstream& ss, TranslatePath&, int indent );
 	void translateItem( stringstream& ss, TranslatePath&, int indent, bool allow_block = true );
 	void printFunctionHeader( stringstream& ss, string x );
 	void pullFunctions( stringstream& ss, TranslatePath& translatePath );
 	string decodeTypename();
+	bool compare( const AST* other ) const;
+	AST* getType() const;
+	AST* cascade(); // recursive delete
 	static string findFunctionName( string name, TranslatePath translatePath );
 	friend class Tokens;
 	friend ostream& operator<<( ostream& os, const AST& ast );
