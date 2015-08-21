@@ -13,9 +13,9 @@
 const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{"!",make_tuple(0,RIGHT,true)},		// sort list
 	{"?",make_tuple(0,RIGHT,true)},		// shuffle list
-	{"<->",make_tuple(1,LEFT,false)},	// swap elements
-	{"<~>",make_tuple(1,RIGHT,false)},	//
-	{"@",make_tuple(2,LEFT,false)},		// list indexing
+	{"@",make_tuple(1,LEFT,false)},		// list indexing
+	{"<->",make_tuple(2,LEFT,false)},	// swap elements
+	{"<~>",make_tuple(2,RIGHT,false)},	//
 	{"^",make_tuple(3,RIGHT,false)},	// exponentiation
 	{"-u",make_tuple(4,RIGHT,true)},	// unary minus
 	{"*",make_tuple(5,LEFT,false)},		// multiplication

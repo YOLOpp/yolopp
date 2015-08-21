@@ -1,0 +1,2 @@
+int dice = ?[1,2,3,4,5,6] @ 0,
+print( "I rolled a " + to_string( dice ) + "!\n" )

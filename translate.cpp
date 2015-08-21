@@ -27,7 +27,7 @@ string AST::translate(void){
 	// main
 	ss << "int main( int argc, char **argv ) {\n";
 	// do global stuff
-	ss << "\tv_argc = argc;\n\tfor(int i = 0; i < argc; i++ ) v_argv.emplace_back( argv[i] );\n\t";
+	ss << "\tv_argc = argc;\n\tfor(int i = 0; i < argc; i++ ) v_argv.emplace_back( argv[i] );\n\trandom_generator.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());\n\t";
 	// translate main
 	translateBlock( ss, translatePath, 1 );
 	ss<<"\n}\n";
@@ -156,6 +156,10 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 			} else {
 				if( functionName == "operator-u" )
 					functionName = "operator-";
+				else if( functionName == "operator<->" )
+					functionName = "std::swap";
+				else if( functionName == "operator?" )
+					functionName = "shuffle";
 				ss << functionName << "( ";
 				bool comma = false;
 				for( AST* argument : children ) {
@@ -210,7 +214,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 		break;
 		case AT_INLINE_LIST: case AT_INLINE_SET: {
 			AST* r = getType();
-			ss << r->decodeTypename() << "({ ";
+			ss << "std::move(" << r->decodeTypename() << "({ ";
 			bool comma = false;
 			for( AST* child: children ) {
 				if( comma )
@@ -218,7 +222,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				comma = true;
 				child->translateItem( ss, translatePath, indent, false );
 			}
-			ss << " })";
+			ss << " }))";
 			delete r->cascade();
 		}
 		break;
