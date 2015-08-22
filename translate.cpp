@@ -153,6 +153,12 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				ss << ").at((";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << ").get_ui())";
+			} else if( functionName == "static_cast" ) {
+				ss << "cast<";
+				children.at(1)->translateItem( ss, translatePath, indent, false );
+				ss << ">( ";
+				children.at(0)->translateItem( ss, translatePath, indent, false );
+				ss << " )";
 			} else {
 				if( functionName == "operator-u" )
 					functionName = "operator-";
@@ -240,6 +246,9 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				}
 			} else
 				throw translate_exception( "Unexpected flow statement" );
+		break;
+		case AT_DATATYPE:
+			ss << decodeTypename();
 		break;
 		default:
 			throw translate_exception( "Unexpected node " + to_string( type ) + " as translation item" );

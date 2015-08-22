@@ -1,5 +1,5 @@
 int i = 0,
 while( i < 10 ) [ 
-	print( to_string(i) + "\n" ), 
+	print( i as string + "\n" ), 
 	i = i + 1 
 ]

@@ -10,4 +10,4 @@ function int factorial( int n ) [
 	return r
 ],
 
-print( to_string( factorial( 6 ) ) + "\n" )
+print( factorial( 6 ) as string + "\n" )

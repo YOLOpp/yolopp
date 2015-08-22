@@ -22,6 +22,7 @@ const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{"/",make_tuple(5,LEFT,false)},		// division
 	{"+",make_tuple(6,LEFT,false)},		// addition
 	{"-",make_tuple(6,LEFT,false)},		// subtraction
+	{"as",make_tuple(7,LEFT,false)},	// cast
 	{"<",make_tuple(8,LEFT,false)},		// less-than
 	{">",make_tuple(8,LEFT,false)},		// more-than
 	{"<=",make_tuple(8,LEFT,false)},	// at most
@@ -179,6 +180,8 @@ Tokens::Tokens( const string& s ) {
 						t.type = KEYWORD;
 					else if( datatypes.find( string(t) ) != datatypes.end() )
 						t.type = TYPENAME;
+					else if( operator_precedence.find( string(t) ) != operator_precedence.end() )
+						t.type = OPERATOR;
 					else
 						t.type = VARIABLE;
 				}
@@ -290,7 +293,10 @@ AST* Tokens::loopYard( int& n ) const {
 				parameters = 1;
 			else
 				parameters = 2;
-			h->val = "@operator" + at(n); // temporary
+			if( at(n) == "as" )
+				h->val = "@static_cast";
+			else
+				h->val = "@operator" + at(n); // temporary
 			h->type = AT_FUNCTIONCALL;
 			break;
 		case FUNCTION: {
@@ -331,6 +337,11 @@ AST* Tokens::loopYard( int& n ) const {
 				break;
 			}
 		}
+		case TYPENAME:
+			h->type = AT_DATATYPE;
+			h->val = at(n);
+			parameters = int( datatypes.at( at( n ) ).second );
+		break;
 		default:
 			throw compile_exception( "Unknown/Unsupported token type", -1 );
 			h = nullptr;
@@ -345,7 +356,11 @@ AST* Tokens::loopYard( int& n ) const {
 }
 
 AST* Tokens::junkYard( int i, int n ) const { // converts statement tokens to AST using shuntingYard
+	for( int k = i; k < n; k++ )
+		std::cerr << at(k) << ":" << at(k).type <<  "#";
 	Tokens postfix = shuntingYard( i, n );
+	for( auto& t : postfix )
+		std::cerr << t << "#";
 	int k = postfix.size();
 	return postfix.loopYard( k );
 }
@@ -528,8 +543,31 @@ Tokens Tokens::shuntingYard( int i, int n ) const {
 				output.push_back( operator_stack.top() );
 				operator_stack.pop();
 			}
+			if( token.str() == "as" ) {
+				bool done = false;
+				stack<Token> reverse;
+				while( ++t != begin() + n ) {
+					if( t->type == TYPENAME ) {
+						reverse.push( *t );
+						if( datatypes.at( t->str() ).second == false ) { // ending typename
+							done = true;
+							break;
+						}
+					} else
+						throw compile_exception( "Incomplete typename in typecast", i );
+				}
+				while( !reverse.empty() ) {
+					output.push_back( reverse.top() );
+					reverse.pop();
+				}
+				output.push_back( token );
+				if( !done )
+					throw compile_exception( "Unexpected end of statement", i );
+			} else
+				operator_stack.push( token );
+		}/* else if( token.type == TYPENAME ) {
 			operator_stack.push( token );
-		} else if( token.type == LEFT_BRACKET ) {
+		} */else if( token.type == LEFT_BRACKET ) {
 			operator_stack.push( token );
 			comma_stack.push(0);
 		} else if( token.type == RIGHT_BRACKET ) {

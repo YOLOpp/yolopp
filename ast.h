@@ -33,7 +33,7 @@ enum token_type {
 	STRING,				//
 	OPERATOR,			//
 	KEYWORD,			//
-	TYPENAME,
+	TYPENAME,			// *
 	FUNCTION,			//
 	VARIABLE,			//
 	COMMA

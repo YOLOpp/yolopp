@@ -13,10 +13,10 @@ function rat pi_square_over_6( int m ) [
 	rat r = 0,
 	int k = 1,
 	while( k <= m ) [
-		r = r + 1 / to_rat( k*k ),
+		r = r + 1 / ( k*k as rat ),
 		k = k + 1
 	],
 	return r
 ],
 
-print( to_string( to_float( pi_square_over_6( 100000 ) ) ) + "\n" )
+print( pi_square_over_6( 100000 ) as float as string + "\n" )

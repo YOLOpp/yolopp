@@ -42,3 +42,21 @@ template<typename T> t_list<T> shuffle( t_list<T>&& m ) {
 	return l;
 }
 
+template<typename T,typename S> T cast( const S& o ) {
+	return static_cast<T>( o );
+}
+
+template<> t_string cast( const t_int& o ) {
+	return o.get_str();
+}
+
+template<> t_string cast( const t_rat& o ) {
+	return o.get_str();
+}
+
+template<> t_string cast( const t_float& o ) {
+	mp_exp_t e;
+	t_string s = o.get_str( e );
+	return "0." + s + "*10^" + std::to_string(e);
+}
+
