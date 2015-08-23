@@ -48,10 +48,7 @@ string AST::decodeTypename() {
 		r += ">";
 	} else if( type == AT_DATATYPE ) {
 		if( val == "set" || val == "list" ) {
-			if( val == "set" )
-				r = "std::set<";
-			else
-				r = "std::vector<";
+			r = "t_" + val + "<";
 			for( AST* child : children ) {
 				if( comma )
 					r += ",";
@@ -166,6 +163,10 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 					functionName = "std::swap";
 				else if( functionName == "operator?" )
 					functionName = "shuffle";
+				else if( functionName == "operator:" )
+					functionName = "contains";
+				else if( functionName == "operator#" )
+					functionName = "size_of";
 				ss << functionName << "( ";
 				bool comma = false;
 				for( AST* argument : children ) {

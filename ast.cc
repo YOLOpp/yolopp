@@ -13,7 +13,9 @@
 const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{"!",make_tuple(0,RIGHT,true)},		// sort list
 	{"?",make_tuple(0,RIGHT,true)},		// shuffle list
+	{"#",make_tuple(0,RIGHT,true)},		// count elements list/set
 	{"@",make_tuple(1,LEFT,false)},		// list indexing
+	{":",make_tuple(1,LEFT,false)},		// set contains (temp)
 	{"<->",make_tuple(2,LEFT,false)},	// swap elements
 	{"<~>",make_tuple(2,RIGHT,false)},	//
 	{"^",make_tuple(3,RIGHT,false)},	// exponentiation
@@ -22,7 +24,7 @@ const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{"/",make_tuple(5,LEFT,false)},		// division
 	{"+",make_tuple(6,LEFT,false)},		// addition
 	{"-",make_tuple(6,LEFT,false)},		// subtraction
-	{"as",make_tuple(7,LEFT,false)},	// cast
+	{"~",make_tuple(7,LEFT,false)},		// cast (temp)
 	{"<",make_tuple(8,LEFT,false)},		// less-than
 	{">",make_tuple(8,LEFT,false)},		// more-than
 	{"<=",make_tuple(8,LEFT,false)},	// at most
@@ -33,6 +35,16 @@ const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{"^^",make_tuple(13,LEFT,false)},	// xor
 	{"||",make_tuple(14,LEFT,false)},	// or
 	{"=",make_tuple(15,RIGHT,false)}	// asignment
+};
+
+const map<string, string> operator_synonyms {
+	{"at","@"},
+	{"shuffle","?"},
+	{"sort","!"},
+	{"sizeof","#"},
+	{"swap","<->"},
+	{"contains",":"},	// these symbols are temporary, to be replaced with unicode
+	{"as","~"}			//
 };
 
 // name, number of parameters
@@ -180,9 +192,10 @@ Tokens::Tokens( const string& s ) {
 						t.type = KEYWORD;
 					else if( datatypes.find( string(t) ) != datatypes.end() )
 						t.type = TYPENAME;
-					else if( operator_precedence.find( string(t) ) != operator_precedence.end() )
+					else if( operator_synonyms.find( string(t) ) != operator_synonyms.end() ) {
 						t.type = OPERATOR;
-					else
+						t.str() = operator_synonyms.at( t.str() );
+					} else
 						t.type = VARIABLE;
 				}
 				else if( mode == MODE_FLOAT )
@@ -293,7 +306,7 @@ AST* Tokens::loopYard( int& n ) const {
 				parameters = 1;
 			else
 				parameters = 2;
-			if( at(n) == "as" )
+			if( at(n) == "~" )
 				h->val = "@static_cast";
 			else
 				h->val = "@operator" + at(n); // temporary
@@ -356,11 +369,7 @@ AST* Tokens::loopYard( int& n ) const {
 }
 
 AST* Tokens::junkYard( int i, int n ) const { // converts statement tokens to AST using shuntingYard
-	for( int k = i; k < n; k++ )
-		std::cerr << at(k) << ":" << at(k).type <<  "#";
 	Tokens postfix = shuntingYard( i, n );
-	for( auto& t : postfix )
-		std::cerr << t << "#";
 	int k = postfix.size();
 	return postfix.loopYard( k );
 }
@@ -543,7 +552,7 @@ Tokens Tokens::shuntingYard( int i, int n ) const {
 				output.push_back( operator_stack.top() );
 				operator_stack.pop();
 			}
-			if( token.str() == "as" ) {
+			if( token.str() == "~" ) {
 				bool done = false;
 				stack<Token> reverse;
 				while( ++t != begin() + n ) {
