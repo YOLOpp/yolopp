@@ -1,0 +1,2 @@
+list int x = (3 : 100),
+print( x as string + "\n" ) 

@@ -163,10 +163,16 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 					functionName = "std::swap";
 				else if( functionName == "operator?" )
 					functionName = "shuffle";
-				else if( functionName == "operator:" )
+				else if( functionName == "operator." )
 					functionName = "contains";
 				else if( functionName == "operator#" )
 					functionName = "size_of";
+				else if( functionName == "operator:" ) {
+					functionName = "t_range<";
+					AST* type = children.at(0)->getType();
+					functionName += type->decodeTypename() + ">";
+					delete type->cascade();
+				} 
 				ss << functionName << "( ";
 				bool comma = false;
 				for( AST* argument : children ) {
