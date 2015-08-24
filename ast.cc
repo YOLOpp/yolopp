@@ -66,7 +66,7 @@ const map<string, int> keywords {
 
 // name, parameters, is prefix
 const map<string, pair<int, bool> > datatypes {
-	{ "null", make_pair(0,false) }, // for functions returning nothing
+	/*{ "null", make_pair(0,false) }, // for functions returning nothing*/
 	{ "int", make_pair(-1, false) },
 	{ "string", make_pair(0, false) },
 	{ "rat", make_pair(-1, false) },

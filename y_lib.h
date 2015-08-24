@@ -19,6 +19,9 @@ typedef mpz_class t_int;
 typedef mpq_class t_rat;
 typedef mpf_class t_float;
 typedef bool t_bool;
+struct t_null {};
+
+#define v_null t_null()
 
 extern t_int v_argc;
 extern t_list<t_string> v_argv;
@@ -29,6 +32,11 @@ template<typename T> struct cast_helper;
 template<typename S, typename T> S cast( const T& x ) {
 	return cast_helper<S>::cast_f( x );
 }
+
+template<typename T> T& at( t_list<T>& x, const t_int& y );
+template<typename T> T& at( t_list<T>&& x, const t_int& y );
+template<typename T> t_list<T> at( t_list<T>& x, const t_list<t_int>& y );
+template<typename T> t_list<T> at( t_list<T>&& x, const t_list<t_int>& y );
 
 template<typename X> struct t_range {
 	typedef X			value_type;
@@ -87,9 +95,27 @@ template<typename X> struct t_range {
 	operator t_list<X>() const { t_list<X> r; r.reserve( size() ); for( const X& x : *this ) r.push_back( x ); return r; }
 };
 
+template<typename T> struct t_frame {
+	t_int _a, _b;
+	t_list<T>& _f;
+
+	t_frame( t_list<T>& f, t_int a, t_int b ) : _a(a), _b(b), _f(f) {};
+
+	// TODO: add all required operators
+	template<typename S> t_frame& operator+=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator+=( other ); return *this; }
+	template<typename S> t_frame& operator-=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator-=( other ); return *this; }
+	template<typename S> t_frame& operator*=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator*=( other ); return *this; }
+	template<typename S> t_frame& operator/=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator/=( other ); return *this; }
+	t_frame& operator= ( const T& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x) = other; return *this; }
+	t_frame& operator= ( t_null ) { _f.erase( _f.begin() + cast<size_t>( _a ), _f.begin() + cast<size_t>( _b ) ); _b = _a; return *this; }
+
+	operator t_list<T>() const { t_list<T> r; r.reserve( _b-_a ); for( const T& x : *this ) r.push_back( at(_f,x) ); return r; }
+};
+
 void f_0_print( t_string s );
 t_string f_0_input(void);
 
+// TODO: add inplace shuffle (not return a copy)
 template<typename T> t_list<T> shuffle( t_list<T>& m ) {
 	t_list<T> l( m );
 	std::shuffle( l.begin(), l.end(), random_generator );
@@ -102,6 +128,7 @@ template<typename T> t_list<T> shuffle( t_list<T>&& m ) {
 	return l;
 }
 
+// TODO: add inplace sort (not return a copy)
 template<typename T> t_list<T> operator!( t_list<T>& m ) {
 	t_list<T> l( m );
 	std::sort( l.begin(), l.end() );
@@ -122,14 +149,11 @@ template<typename T> T& at( t_list<T>&& x, const t_int& y ) {
 	return x.at( cast<size_t>(y) );
 }
 
-template<typename T> t_list<T> at( t_list<T>& x, const t_list<t_int>& y ) {
-	t_list<T> r;
-	for( const auto& z : y )
-		r.push_back( x.at( cast<size_t>( z ) ) );
-	return r;
+template<typename T> t_frame<T> at( t_list<T>& x, t_range<t_int> r ) {
+	return t_frame<T>( x, r.front(), r.back() );
 }
 
-template<typename T> t_list<T> at( t_list<T>& x, t_range<t_int> y ) {
+template<typename T> t_list<T> at( t_list<T>& x, const t_list<t_int>& y ) {
 	t_list<T> r;
 	for( const auto& z : y )
 		r.push_back( x.at( cast<size_t>( z ) ) );

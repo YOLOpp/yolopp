@@ -1,0 +1,8 @@
+list int x = [1,2,3,4],
+for( y in x ) [
+	print( y as string + "\n" )
+],
+
+for( y in 5:9 ) [
+	print( y as string + "\n" )
+]
