@@ -1,2 +1,5 @@
-list int x = (3 : 100),
-print( x as string + "\n" ) 
+list int x = (100 : 110),
+print( x as string + "\n" ),
+
+list int y = x @ ( 3:5 ),
+print( y as string + "\n" )

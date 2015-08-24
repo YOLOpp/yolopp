@@ -10,7 +10,7 @@ bool isBlock(ast_type_t type){
 	return type==AT_SYNCBLOCK||type==AT_ASYNCBLOCK||type==AT_FUNCTIONDEF;
 }
 
-set<string> functionNames = { "f_0_print", "f_0_input", "f_0_to_string", "f_0_to_float", "f_0_to_rat" };
+set<string> functionNames = { "f_0_print", "f_0_input", "f_0_push", "f_0_pop", "f_0_insert", "f_0_remove" };
 
 string AST::translate(void){
 	stringstream ss;
@@ -144,13 +144,13 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				ss << ")=(";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << "))";
-			} else if( functionName == "operator@" ) {
+			} /*else if( functionName == "operator@" ) {
 				ss << "("; 
 				children.at(0)->translateItem( ss, translatePath, indent, false );
 				ss << ").at((";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << ").get_ui())";
-			} else if( functionName == "static_cast" ) {
+			} */else if( functionName == "static_cast" ) {
 				ss << "cast<";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << ">( ";
@@ -172,7 +172,8 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 					AST* type = children.at(0)->getType();
 					functionName += type->decodeTypename() + ">";
 					delete type->cascade();
-				} 
+				} else if( functionName == "operator@" )
+					functionName = "at";
 				ss << functionName << "( ";
 				bool comma = false;
 				for( AST* argument : children ) {
@@ -205,6 +206,13 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 					children.at(0)->translateItem( ss, translatePath, indent, false );
 					ss << " )";
 					children.at(1)->translateBlock( ss, translatePath, indent );
+				} else if( val == "for" ) {
+					ss << "for( auto& ";
+					children.at(0)->translateItem( ss, translatePath, indent, false );
+					ss << ": ";
+					children.at(1)->translateItem( ss, translatePath, indent, false );
+					ss << " )";
+					children.at(2)->translateBlock( ss, translatePath, indent );
 				} else {
 					throw translate_exception( "Unknown loop " + val );
 				}

@@ -114,6 +114,42 @@ template<typename T> t_list<T> operator!( t_list<T>&& m ) {
 	return l;
 }
 
+template<typename T> T& at( t_list<T>& x, const t_int& y ) {
+	return x.at( cast<size_t>(y) );
+}
+
+template<typename T> T& at( t_list<T>&& x, const t_int& y ) {
+	return x.at( cast<size_t>(y) );
+}
+
+template<typename T> t_list<T> at( t_list<T>& x, const t_list<t_int>& y ) {
+	t_list<T> r;
+	for( const auto& z : y )
+		r.push_back( x.at( cast<size_t>( z ) ) );
+	return r;
+}
+
+template<typename T> t_list<T> at( t_list<T>& x, t_range<t_int> y ) {
+	t_list<T> r;
+	for( const auto& z : y )
+		r.push_back( x.at( cast<size_t>( z ) ) );
+	return r;
+}
+
+template<typename T> t_list<T> at( t_list<T>&& x, const t_list<t_int>& y ) {
+	t_list<T> r;
+	for( const auto& z : y )
+		r.push_back( x.at( cast<size_t>( z ) ) );
+	return r;
+}
+
+template<typename T> t_list<T> at( t_list<T>&& x, t_range<t_int> y ) {
+	t_list<T> r;
+	for( const auto& z : y )
+		r.push_back( x.at( cast<size_t>( z ) ) );
+	return r;
+}
+
 template<typename T> t_int contains( const t_list<T>& x, const T& y ) {
 	return std::count( x.begin(), x.end(), y );
 }
@@ -128,6 +164,24 @@ template<typename T> t_int size_of( const t_list<T>& x ) {
 
 template<typename T> t_int size_of( const t_set<T>& x ) {
 	return x.size();
+}
+
+template<typename T> void f_0_push( t_list<T>& x, const T& y ) {
+	x.push_back( y );
+}
+
+template<typename T> T f_0_pop( t_list<T>& x ) {
+	T r = x.back();
+	x.pop_back();
+	return r;
+}
+
+template<typename T> void f_0_insert( t_set<T>& x, const T& y ) {
+	x.insert( y );
+}
+
+template<typename T> void f_0_remove( t_set<T>& x, const T& y ) {
+	x.erase( y );
 }
 
 template<typename T> struct cast_helper {

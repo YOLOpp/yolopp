@@ -55,7 +55,8 @@ const map<string, int> keywords {
 	{ "if", 1 },
 	{ "else", 0 },
 	{ "while", 1 },
-	{ "forever", 0 },
+	{ "for", 1 },
+	{ "in", 1 },
 	{ "break", -1 },
 	{ "continue", 0 },
 	{ "function", 3 },
@@ -370,6 +371,10 @@ AST* Tokens::loopYard( int& n ) const {
 }
 
 AST* Tokens::junkYard( int i, int n ) const { // converts statement tokens to AST using shuntingYard
+	std::cerr << "(" << i << "," << n << ")";
+	for( int k = i; k < n; k++ )
+		std::cerr << at(k).str() << "$" << at(k).type << "|";
+	
 	Tokens postfix = shuntingYard( i, n );
 	int k = postfix.size();
 	return postfix.loopYard( k );
@@ -457,9 +462,27 @@ vector<AST*> Tokens::scotlandYard( int i, int n, int& block_id ) const {
 							} else 
 								throw compile_exception( "Brackets after while-statement are required", i );
 						} else 
-							throw compile_exception( "Empty if-statement", i );
+							throw compile_exception( "Empty while-statement", i );
 					} else 
 						throw compile_exception( "Expected conditional after while-statement", i );
+				} else if( at(i).str() == "for" ) {
+					if( i + 1 < n && at(i+1).type == LEFT_BRACKET && at(i+1) == "(" ) {
+						j = bracketIterator( i+1, n );
+						if( j < n ) {
+							if( i + 3 < n && at(i+2).type == VARIABLE && at(i+3).type == KEYWORD && at(i+3).str() == "in" ) {
+								b = junkYard( i+4, j-1 );
+								if( at(j).type == LEFT_BRACKET && ( at(j).str() == ASYNC_BRACKET || at(j).str() == SYNC_BRACKET ) ) {
+									k = bracketIterator( j, n );
+									a = new AST( AT_LOOP, "for", { new AST( AT_WORD, at(i+2), {} ), b, new AST( at(j+1).str() == SYNC_BRACKET ? AT_SYNCBLOCK : AT_ASYNCBLOCK, to_string(block_id++), { scotlandYard( j+1, k-1, block_id ) } ) } );
+									i = k;
+								} else 
+									throw compile_exception( "Brackets after for-statement are required", i );
+							} else
+								throw compile_exception( "Variable name before in-statement is required", i+2 );
+						} else 
+							throw compile_exception( "Empty for-statement", i );
+					} else 
+						throw compile_exception( "Parenthesis in for statement are required", i+1 );
 				} else if( at(i).str() == "return" ) {
 					if( i + 1 < n && at(i+1).type != COMMA ) {
 						l = commaIterator( i + 1, n );
@@ -701,6 +724,7 @@ const char* compile_exception::what() const noexcept {
 compile_exception::compile_exception( string err, int i ) {
 	err_str = move( err );
 	token_id = i;
+	//token_id = *reinterpret_cast<int*>(0);
 }
 
 ostream& operator<<( ostream& os, const AST& ast ) {

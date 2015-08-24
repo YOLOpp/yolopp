@@ -1,0 +1,8 @@
+list int x = [1,2,3,4],
+
+push( x, 5 ),
+print( x as string + "\n" ),
+
+print( pop( x ) as string + "\n" ),
+
+print( x as string + "\n" )

@@ -4,7 +4,7 @@ t_int v_argc;
 t_list<t_string> v_argv;
 std::default_random_engine random_generator;
 
-void f_0_print(std::string s) {
+void f_0_print( t_string s) {
 	std::cout << s;
 }
 
