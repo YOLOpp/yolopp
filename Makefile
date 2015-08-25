@@ -23,4 +23,4 @@ OUT_FILES := $(addprefix bin/,$(notdir $(YPP_FILES:.ypp=)))
 bin/%: ypp/%.ypp
 	./y++ $< $@
 
-ypp_all_source: y++ $(OUT_FILES)
+ypp_all_source: y++ y_lib.h $(OUT_FILES)

@@ -36,6 +36,7 @@ template<typename T> class t_list {
 	std::vector<T> v;
 
 	T& _at( size_t i ) { return v.at(i); }
+	T&& _mov( size_t i ) { return std::move( v.at(i) ); }
 public:
 	size_t size() const { return v.size(); }
 
@@ -81,10 +82,11 @@ public:
 	t_list_item( t_list<T>& parent, size_t index ) : p( parent ), i( index ) {}
 
 	T& _ref() { return p._at(i); }
+	T&& _mov() { return std::move( p._mov(i) ); }
 
 	T& operator=( const T& other ) { return p.at(i) = other; }
 	t_null operator=( t_null ) { p.erase( i ); return v_null; }
-	operator T() { return p._at(i); }
+	operator T() const { return p._at(i); }
 };
 
 template<typename X> struct t_range {
@@ -146,7 +148,9 @@ template<typename X> struct t_range {
 
 namespace std {
 template<typename T> void swap( t_list_item<T> a, t_list_item<T> b ) {
-	swap( a._ref(), b._ref() );
+	T temp = std::move( a._mov() );
+	a._ref() = std::move( b._mov() );
+	b._ref() = std::move( temp );
 }
 }
 
@@ -201,7 +205,7 @@ template<typename T> struct t_frame {
 	template<typename S> t_frame& operator-=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator-=( other ); return *this; }
 	template<typename S> t_frame& operator*=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator*=( other ); return *this; }
 	template<typename S> t_frame& operator/=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator/=( other ); return *this; }
-	t_frame& operator= ( const T& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x) = other; return *this; }
+	t_frame& operator= ( const T& other ) { for( auto& x : t_range<size_t>( _a, _b ) ) _f._at(x) = other; return *this; }
 	t_frame& operator= ( t_null ) { _f.erase( _a, _b ); _b = _a; return *this; }
 
 	operator t_list<T>() const { t_list<T> r; r.v.reserve( _b-_a ); for( const T& x : *this ) r.push_back( x ); return r; }
@@ -357,9 +361,21 @@ template<> struct cast_helper<t_string> {
 		}
 		return x + "]";
 	}
-	template<typename U> static t_string cast_f( const t_list_item<U>& o ) {
-		return cast_helper<t_string>::cast_f<U>( o );
+	template<typename U> static t_string cast_f( const t_frame<U>& o ) {
+		t_string x = "[";
+		bool comma = false;
+		for( const U& p: o ) {
+			if( comma )
+				x += ",";
+			comma = true;
+			x += cast_helper<t_string>::cast_f( p );
+		}
+		return x + "]";
 	}
+	/*template<typename U> static t_string cast_f( const t_list_item<U>& o ) {
+		std::cerr << "list_item cast" << std::endl;
+		return cast_helper<t_string>::cast_f<U>( U(o) );
+	}*/
 	template<typename U> static t_string cast_f( const t_set<U>& o ) {
 		t_string x = "{";
 		bool comma = false;
