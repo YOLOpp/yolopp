@@ -15,7 +15,7 @@ set<string> functionNames = { "f_0_print", "f_0_input", "f_0_push", "f_0_pop", "
 string AST::translate(void){
 	stringstream ss;
 	TranslatePath translatePath;
-	ss << "#include \"y_lib.h\"\n";
+	ss << "#include \"./../y_lib.h\"\n";  // WILL BE REPLACED WITH <> ONCE STUCTURE IS ADDED TO THE PATH
 	// global stuff
 	/*ss << "typedef mpz_class t_int;\n";
 	ss << "t_int v_argc;\nchar** v_argv;\n";
@@ -27,7 +27,7 @@ string AST::translate(void){
 	// main
 	ss << "int main( int argc, char **argv ) {\n";
 	// do global stuff
-	ss << "\tv_argc = argc;\n\tfor(int i = 0; i < argc; i++ ) v_argv.emplace_back( argv[i] );\n\trandom_generator.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());\n\t";
+	ss << "\tv_argc = argc;\n\tfor(int i = 0; i < argc; i++ ) v_argv.push_back(std::move(t_string(argv[i])));\n\trandom_generator.seed(std::chrono::high_resolution_clock::now().time_since_epoch().count());\n\t";
 	// translate main
 	translateBlock( ss, translatePath, 1 );
 	ss<<"\n}\n";

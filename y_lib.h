@@ -8,11 +8,13 @@
 #include <random>
 #include <chrono>
 #include <cstring>
+#include <initializer_list>
 
 // typedef mpz_class t_int;
 
-#define t_list std::vector
+//#define t_list std::vector
 #define t_set std::set
+
 
 typedef std::string t_string;
 typedef mpz_class t_int;
@@ -21,7 +23,40 @@ typedef mpf_class t_float;
 typedef bool t_bool;
 struct t_null {};
 
-#define v_null t_null()
+#define v_null (t_null())
+
+template<typename T> class t_list_item;
+template<typename X> struct t_range;
+template<typename T> struct t_frame;
+template<typename T> class t_list {	
+	friend class t_list_item<T>;
+	friend struct t_range<T>;
+	friend struct t_frame<T>;
+
+	std::vector<T> v;
+
+	T& _at( size_t i ) { return v.at(i); }
+public:
+	size_t size() const { return v.size(); }
+
+	typename std::vector<T>::iterator begin() { return v.begin(); }
+	typename std::vector<T>::iterator end() { return v.end(); }
+	typename std::vector<T>::const_iterator begin() const { return v.begin(); }
+	typename std::vector<T>::const_iterator end() const { return v.end(); }
+
+	t_list& push_back( const T& x ) { v.push_back( x ); return *this; }
+	t_list& push_back( T&& x ) { v.push_back( x ); return *this; }
+	t_list& pop_back() { v.pop_back(); return *this; }
+
+	void erase( size_t i ) { v.erase( v.begin()+i ); }
+	void erase( size_t a, size_t b ) { v.erase( v.begin()+a, v.begin()+b ); }
+
+	t_list() {}
+	t_list( std::initializer_list<T>&& l ) : v( l ) {}
+	t_list_item<T> at( size_t i ) { return t_list_item<T>( *this, i ); }
+	t_list_item<T> front() { return at( 0 ); }
+	t_list_item<T> back() { return at( size()-1 ); }
+};
 
 extern t_int v_argc;
 extern t_list<t_string> v_argv;
@@ -33,10 +68,24 @@ template<typename S, typename T> S cast( const T& x ) {
 	return cast_helper<S>::cast_f( x );
 }
 
-template<typename T> T& at( t_list<T>& x, const t_int& y );
-template<typename T> T& at( t_list<T>&& x, const t_int& y );
+template<typename T> t_list_item<T> at( t_list<T>& x, const t_int& y );
+//template<typename T> T& at( t_list<T>&& x, const t_int& y );
 template<typename T> t_list<T> at( t_list<T>& x, const t_list<t_int>& y );
 template<typename T> t_list<T> at( t_list<T>&& x, const t_list<t_int>& y );
+
+template<typename T> class t_list_item {
+public:
+	t_list<T>& p;
+	size_t i;
+
+	t_list_item( t_list<T>& parent, size_t index ) : p( parent ), i( index ) {}
+
+	T& _ref() { return p._at(i); }
+
+	T& operator=( const T& other ) { return p.at(i) = other; }
+	t_null operator=( t_null ) { p.erase( i ); return v_null; }
+	operator T() { return p._at(i); }
+};
 
 template<typename X> struct t_range {
 	typedef X			value_type;
@@ -92,14 +141,60 @@ template<typename X> struct t_range {
 
 	t_range( value_type x, value_type y, difference_type z = 1 ) : a(x), b(y), i(z) {};
 
-	operator t_list<X>() const { t_list<X> r; r.reserve( size() ); for( const X& x : *this ) r.push_back( x ); return r; }
+	operator t_list<X>() const { t_list<X> r; r.v.reserve( size() ); for( const X& x : *this ) r.push_back( x ); return r; }
 };
 
+namespace std {
+template<typename T> void swap( t_list_item<T> a, t_list_item<T> b ) {
+	swap( a._ref(), b._ref() );
+}
+}
+
 template<typename T> struct t_frame {
-	t_int _a, _b;
+	size_t _a, _b;
 	t_list<T>& _f;
 
-	t_frame( t_list<T>& f, t_int a, t_int b ) : _a(a), _b(b), _f(f) {};
+	t_frame( t_list<T>& f, size_t a, size_t b ) : _a(a), _b(b), _f(f) {};
+
+	struct iterator {
+		typedef std::bidirectional_iterator_tag	iterator_category;
+		typedef T			value_type;
+		typedef T*			pointer;
+		typedef const T*	const_pointer;
+		typedef T&			reference;
+		typedef const T&	const_reference;
+		typedef size_t 		size_type;
+		typedef T			difference_type;
+		typedef t_frame<T>::iterator self_type;
+
+		const t_frame<T>* p;
+		size_t c;
+
+		iterator( const size_t& q, const t_frame<T>* r ) :  p(r), c(q) {};
+		iterator() : c(-1), p(nullptr) {};
+
+		reference operator*() { return p->_f._at(c); }  // assigning to this will break everything
+		pointer operator->() { return &(operator*()); }
+
+		self_type &operator+=(size_t n) { c += n; if( c >= p->_b ) c = p->_b; else if( c < p->_a ) c = p->_a; return *this; }
+		self_type &operator-=(size_t n) { return operator+=( -n ); }
+		self_type operator+( size_t n ) const { return std::copy(*this) += n; }
+		self_type operator-(size_t n) const { return std::copy(*this) -= n; }
+		
+		bool operator==(const self_type &other) const { return c == other.c && p == other.p; }
+		bool operator!=(const self_type &other) const { return c != other.c || p != other.p; }
+
+		self_type &operator++() { return operator+=(1); }
+		self_type operator++(int) { self_type r = std::copy(*this); operator+=(1); return r; }
+		self_type &operator--() { return operator-=(1); }
+		self_type operator--(int) { self_type r = std::copy(*this); operator-=(1); return r; }
+	};
+
+	T front() { return _f.at(_a); }
+	T back() { return _f.at(_b-1); }
+	iterator begin() const { return iterator(_a,this); }
+	iterator end() const { return iterator(_b,this); }
+	size_t size() const { return _b-_a; }
 
 	// TODO: add all required operators
 	template<typename S> t_frame& operator+=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator+=( other ); return *this; }
@@ -107,9 +202,9 @@ template<typename T> struct t_frame {
 	template<typename S> t_frame& operator*=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator*=( other ); return *this; }
 	template<typename S> t_frame& operator/=( const S& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x).operator/=( other ); return *this; }
 	t_frame& operator= ( const T& other ) { for( auto& x : t_range<t_int>( _a, _b ) ) at(_f,x) = other; return *this; }
-	t_frame& operator= ( t_null ) { _f.erase( _f.begin() + cast<size_t>( _a ), _f.begin() + cast<size_t>( _b ) ); _b = _a; return *this; }
+	t_frame& operator= ( t_null ) { _f.erase( _a, _b ); _b = _a; return *this; }
 
-	operator t_list<T>() const { t_list<T> r; r.reserve( _b-_a ); for( const T& x : *this ) r.push_back( at(_f,x) ); return r; }
+	operator t_list<T>() const { t_list<T> r; r.v.reserve( _b-_a ); for( const T& x : *this ) r.push_back( x ); return r; }
 };
 
 void f_0_print( t_string s );
@@ -141,16 +236,16 @@ template<typename T> t_list<T> operator!( t_list<T>&& m ) {
 	return l;
 }
 
-template<typename T> T& at( t_list<T>& x, const t_int& y ) {
+template<typename T> t_list_item<T> at( t_list<T>& x, const t_int& y ) {
 	return x.at( cast<size_t>(y) );
 }
 
-template<typename T> T& at( t_list<T>&& x, const t_int& y ) {
+template<typename T> t_list_item<T> at( t_list<T>&& x, const t_int& y ) {
 	return x.at( cast<size_t>(y) );
 }
 
 template<typename T> t_frame<T> at( t_list<T>& x, t_range<t_int> r ) {
-	return t_frame<T>( x, r.front(), r.back() );
+	return t_frame<T>( x, cast<size_t>(r.front()), cast<size_t>(r.back()) );
 }
 
 template<typename T> t_list<T> at( t_list<T>& x, const t_list<t_int>& y ) {
@@ -262,6 +357,9 @@ template<> struct cast_helper<t_string> {
 		}
 		return x + "]";
 	}
+	template<typename U> static t_string cast_f( const t_list_item<U>& o ) {
+		return cast_helper<t_string>::cast_f<U>( o );
+	}
 	template<typename U> static t_string cast_f( const t_set<U>& o ) {
 		t_string x = "{";
 		bool comma = false;
@@ -273,5 +371,6 @@ template<> struct cast_helper<t_string> {
 		}
 		return x + "}";
 	}
+
 };
 
