@@ -1,0 +1,10 @@
+function (int, string) f() [
+	return (1, "Hello")
+],
+
+int x = 2,
+string y = "World",
+
+(x,y) = f(),
+
+print( x as string + " " + y + "\n" )

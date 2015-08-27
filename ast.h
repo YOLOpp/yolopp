@@ -65,6 +65,7 @@ public:
 	Tokens()=default;
 private:
 	int bracketIterator( int i, int n ) const;
+	bool isTypename( int i ) const;
 	int resolveTypename( AST*& typename_result, int i, int n ) const;
 	int commaIterator( int i , int n ) const;
 	AST* loopYard( int& n ) const;

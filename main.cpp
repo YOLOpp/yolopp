@@ -60,7 +60,9 @@ int main(int argc,char **argv){
 	srcf.read(&*source.begin(),len);
 	srcf.close();
 
-	string trans=AST(Tokens(source)).translate();
+	Tokens tokens( source );
+	AST tree( tokens );
+	string trans=tree.translate();
 	outf.write(trans.data(),trans.size());
 
 	cerr << tempfname << endl;

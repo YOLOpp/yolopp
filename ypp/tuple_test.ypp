@@ -1,0 +1,5 @@
+(int, string) x = (5, "World"),
+
+print( "My int is " + ( x @ 0 as string ) + " and my string is " + ( x @ 1 ) + "\n" ),
+
+print( x as string + "\n" ),

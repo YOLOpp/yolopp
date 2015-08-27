@@ -9,11 +9,14 @@
 #include <chrono>
 #include <cstring>
 #include <initializer_list>
+#include <tuple>
+#include <utility>
 
 // typedef mpz_class t_int;
 
 //#define t_list std::vector
 #define t_set std::set
+#define t_tuple std::tuple
 
 
 typedef std::string t_string;
@@ -335,6 +338,20 @@ template<> struct cast_helper<size_t> {
 	}
 };
 
+
+template<size_t x> struct tuple_cast_helper {
+	template<typename... U> static void cast_f( const t_tuple<U...>& o, t_string& s ) {
+		tuple_cast_helper<x-1>::cast_f( o, s );
+		s += "," + cast<t_string>( std::get<x>( o ) );
+	}
+};
+
+template<> struct tuple_cast_helper<0> {
+	template<typename... U> static void cast_f( const t_tuple<U...>& o, t_string& s ) {
+		s += cast<t_string>( std::get<0>( o ) );
+	}
+};
+
 template<> struct cast_helper<t_string> {
 	static t_string cast_f( const t_int& o ) {
 		return o.get_str();
@@ -387,6 +404,22 @@ template<> struct cast_helper<t_string> {
 		}
 		return x + "}";
 	}
-
+	template<typename... U> static t_string cast_f( const t_tuple<U...>& o ) {
+		t_string s = "(";
+		tuple_cast_helper<sizeof...(U)-1>::cast_f( o, s );
+		s += ")";
+		return s;
+	}
 };
 
+template<size_t x,typename U> t_list_item<U> special_at( t_list<U>& l ) {
+	return at( l, x );
+}
+
+template<size_t x,typename U> t_list_item<U> special_at( t_list<U>&& l ) {
+	return at( l, x );
+}
+
+template<size_t x,typename... U> typename std::tuple_element<x, std::tuple<U...>>::type& special_at( t_tuple<U...>& l ) {
+	return std::get<x>( l );
+}

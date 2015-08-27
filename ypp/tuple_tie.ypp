@@ -1,0 +1,6 @@
+int x = 5,
+string y = "World",
+
+(x,y) = ( 1, "Hello" ),
+
+print( x as string + " " + y + "\n" )

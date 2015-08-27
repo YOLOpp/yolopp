@@ -38,7 +38,7 @@ string AST::decodeTypename() {
 	string r;
 	bool comma = false;
 	if( type == AT_ARRAY ) {
-		r = "std::tuple<";
+		r = "t_tuple<";
 		for( AST* child : children ) {
 			if( comma )
 				r += ",";
@@ -129,6 +129,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 	if( typeless )
 		for( int i = 0; i < indent; i++ )
 			ss << "\t";
+	bool comma = false;
 	switch( type ) {
 		case AT_FUNCTIONCALL: {
 			string functionName;
@@ -144,13 +145,11 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				ss << ")=(";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << "))";
-			} /*else if( functionName == "operator@" ) {
-				ss << "("; 
+			} else if( functionName == "operator@" && children.at(1)->type == AT_NUMBER ) { // TODO: allow expressions like 3*5+1
+				ss << "special_at<" << children.at(1)->val << ">( "; 
 				children.at(0)->translateItem( ss, translatePath, indent, false );
-				ss << ").at((";
-				children.at(1)->translateItem( ss, translatePath, indent, false );
-				ss << ").get_ui())";
-			} */else if( functionName == "static_cast" ) {
+				ss << ")";
+			} else if( functionName == "static_cast" ) {
 				ss << "cast<";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << ">( ";
@@ -175,7 +174,6 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				} else if( functionName == "operator@" )
 					functionName = "at";
 				ss << functionName << "( ";
-				bool comma = false;
 				for( AST* argument : children ) {
 					if( comma )
 						ss << ", ";
@@ -236,7 +234,6 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 		case AT_INLINE_LIST: case AT_INLINE_SET: {
 			AST* r = getType();
 			ss << "std::move(" << r->decodeTypename() << "({ ";
-			bool comma = false;
 			for( AST* child: children ) {
 				if( comma )
 					ss << ", ";
@@ -246,6 +243,16 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 			ss << " }))";
 			delete r->cascade();
 		}
+		break;
+		case AT_ARRAY:
+			ss << "std::forward_as_tuple( ";
+			for( AST* child: children ) {
+				if( comma )
+					ss << ", ";
+				comma = true;
+				child->translateItem( ss, translatePath, indent, false );
+			}
+			ss << " )";
 		break;
 		case AT_SYNCBLOCK: case AT_ASYNCBLOCK:
 			if( typeless )

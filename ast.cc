@@ -60,8 +60,7 @@ const map<string, int> keywords {
 	{ "break", -1 },
 	{ "continue", 0 },
 	{ "function", 3 },
-	{ "return", 1 },
-	{ "array-init", INT_MIN }
+	{ "return", 1 }
 };
 
 // name, parameters, is prefix
@@ -199,8 +198,7 @@ Tokens::Tokens( const string& s ) {
 						t.str() = operator_synonyms.at( t.str() );
 					} else
 						t.type = VARIABLE;
-				}
-				else if( mode == MODE_FLOAT )
+				} else if( mode == MODE_FLOAT )
 					t.type = FLOAT;
 				else if( mode == MODE_INT )
 					t.type = INTEGER;
@@ -211,7 +209,7 @@ Tokens::Tokens( const string& s ) {
 				}
 			}
 			if( terminate ) {
-				if( back().type == VARIABLE && u.type == LEFT_BRACKET )
+				if( size() > 0 && back().type == VARIABLE && u.type == LEFT_BRACKET )
 					back().type = FUNCTION;
 				push_back( u );
 				u.clear();
@@ -270,11 +268,17 @@ int Tokens::commaIterator( int i , int n ) const {
 	return n;
 }
 
+bool Tokens::isTypename( int i ) const {
+	while( at(i).type == LEFT_BRACKET && at(i).str() == "(" )
+		i++;
+	return ( at(i).type == TYPENAME );
+}
+
 int Tokens::resolveTypename( AST*& typename_result, int i, int n ) const { // does not support datatype parameters yet
 	bool isFinal = false;
 	typename_result = new AST( AT_DATATYPE );
 	AST* head = typename_result;
-	while( i < n && at(i).type == TYPENAME ) {
+	while( i < n && ( at(i).type == TYPENAME || ( at(i).str() == "(" && at(i).type == LEFT_BRACKET ) ) ) {
 		if( isFinal ) 
 			throw compile_exception( "Not expecting '" + at(i).str() + "'", i );
 		if( datatypes.find( at(i).str() ) != datatypes.end() ) {
@@ -285,7 +289,17 @@ int Tokens::resolveTypename( AST*& typename_result, int i, int n ) const { // do
 				head->children.push_back( new AST( AT_DATATYPE ) );
 				head = head->children.back();
 			}
-		} else 
+		} else if( at(i).str() == "(" ) { // tuples    // () is not considered a tuple
+			head->type = AT_ARRAY;
+			do {
+				head->children.push_back( nullptr );
+				i = resolveTypename( head->children.back(), i + 1, n );
+			} while( at(i).type == COMMA );
+			if( at(i).type == RIGHT_BRACKET && at(i).str() == "(" )
+				isFinal = true;
+			else
+				throw compile_exception( "Unexpected end of tuple", i );
+		} else
 			throw compile_exception( "Unknown datatype '" + at(i).str() + "'", i );
 		i++;
 	}
@@ -345,6 +359,8 @@ AST* Tokens::loopYard( int& n ) const {
 					h->type = AT_INLINE_LIST;
 				else if( a == "init-set" )
 					h->type = AT_INLINE_SET;
+				else if( a == "init-tuple" )
+					h->type = AT_ARRAY;
 				else
 					throw compile_exception( "Unknown initaliser list", -1 );
 				h->val = at(n);
@@ -371,9 +387,8 @@ AST* Tokens::loopYard( int& n ) const {
 }
 
 AST* Tokens::junkYard( int i, int n ) const { // converts statement tokens to AST using shuntingYard
-	std::cerr << "(" << i << "," << n << ")";
-	for( int k = i; k < n; k++ )
-		std::cerr << at(k).str() << "$" << at(k).type << "|";
+	/*for( int k = i; k < n; k++ )
+		std::cerr << at(k).str() << "$" << at(k).type << "|";*/
 	
 	Tokens postfix = shuntingYard( i, n );
 	int k = postfix.size();
@@ -396,6 +411,7 @@ vector<AST*> Tokens::scotlandYard( int i, int n, int& block_id ) const {
 	vector<AST*> r;
 	AST *a = nullptr, *b = nullptr, *c = nullptr, *d = nullptr;
 	int j, k, l, m;
+	bool is_typename = false;
 	while( i < n ) {
 		switch( at(i).type ) {
 			case KEYWORD:
@@ -405,16 +421,18 @@ vector<AST*> Tokens::scotlandYard( int i, int n, int& block_id ) const {
 						k = bracketIterator( j+1, n );
 						m = j + 2;
 						b = new AST( AT_ARRAY );
-						while( m < k ) {
-							if( at(m).type == TYPENAME ) {
-								l = resolveTypename( c, m, k - 1 );
-								if( l + 1 < n && at(l).type == VARIABLE && ( at(l+1).type == COMMA || at(l+1).type == RIGHT_BRACKET ) ) {
-									b->children.push_back( new AST( AT_VARIABLEDEF, at(l).str() /*variable-name*/, { c /*data-type*/} ) );
-									m = l+2;
+						if( at(m).type != RIGHT_BRACKET ) {
+							while( m < k ) {
+								if( isTypename(m) ) {
+									l = resolveTypename( c, m, k - 1 );
+									if( l + 1 < n && at(l).type == VARIABLE && ( at(l+1).type == COMMA || at(l+1).type == RIGHT_BRACKET ) ) {
+										b->children.push_back( new AST( AT_VARIABLEDEF, at(l).str() /*variable-name*/, { c /*data-type*/} ) );
+										m = l+2;
+									} else 
+										throw compile_exception( "Variable name required in function definition", i );
 								} else 
-									throw compile_exception( "Variable name required in function definition", i );
-							} else 
-								throw compile_exception( "Expected typename in function definition", i );
+									throw compile_exception( "Expected typename in function definition", i );
+							}
 						}
 						l = bracketIterator( k, n );
 						if( at(j+1).str() == "(" && ( at(k).str() == SYNC_BRACKET || at(k).str() == ASYNC_BRACKET ) ) {
@@ -502,8 +520,10 @@ vector<AST*> Tokens::scotlandYard( int i, int n, int& block_id ) const {
 			 		a->children = scotlandYard( i, j - 1, block_id );
 					i = j;
 					break;
-				} else if(  at(i).str() == "<" ) 
-					throw compile_exception( "Unexpected '" + at(i).str() + "'" , i );
+				} else if( isTypename( i ) ) {
+					is_typename = true;
+					break;
+				} // else: regular statement
 			case VARIABLE: case INTEGER: case FLOAT: case STRING: case FUNCTION:
 				k = commaIterator( i, n );
 				if( k == -1 )
@@ -512,28 +532,31 @@ vector<AST*> Tokens::scotlandYard( int i, int n, int& block_id ) const {
 				i = k;
 			break;
 			case TYPENAME:
-				k = resolveTypename( b, i, n );
-				if( k < n && at(k).type == VARIABLE ) {
-					c = new AST( AT_VARIABLEDEF, at(k).str(), { b } );
-					if( k + 1 < n ) {
-						if( at(k+1) == "=" ) {
-							l = commaIterator( k, n );
-							if( l == -1 )
-								l = n;
-							a = junkYard( k, l );
-							r.push_back( c );
-							i = l;
-						} else if( at(k+1).type == COMMA ) {
-							a = c;
-							i = k + 1;
-						} else 
-							throw compile_exception( "Unexpected '" + at(k+1).str() + "' in variable definition" , k+1 );
-					}
-				} else 
-					throw compile_exception( "Expected variable name after datatype specifier", i );
+				is_typename = true;
 			break;
 			default:
 				throw compile_exception( "Unhandled token type", i );
+		}
+		if( is_typename ) {
+			k = resolveTypename( b, i, n );
+			if( k < n && at(k).type == VARIABLE ) {
+				c = new AST( AT_VARIABLEDEF, at(k).str(), { b } );
+				if( k + 1 < n && at(k+1) == "=" ) {
+					l = commaIterator( k, n );
+					if( l == -1 )
+						l = n;
+					a = junkYard( k, l );
+					r.push_back( c );
+					i = l;
+				} else {
+					if( k + 1 < n && at(k+1).type != COMMA )
+						throw compile_exception( "Unexpected '" + at(k+1).str() + "' in variable definition" , k+1 );
+					i = k + 1;
+					a = c;
+				}
+			} else 
+				throw compile_exception( "Expected variable name after datatype specifier", i );
+			is_typename = false;
 		}
 		r.push_back( a );
 		if( i < n ) {
@@ -627,6 +650,11 @@ Tokens Tokens::shuntingYard( int i, int n ) const {
 				operator_stack.top().str() += " " + to_string( comma_stack.top() );
 				output.push_back( operator_stack.top() );
 				operator_stack.pop();
+			} else if( comma_stack.top() > 1 ) {
+				Token t;
+				t.str() = "init-tuple " + to_string( comma_stack.top() );
+				t.type = KEYWORD;
+				output.push_back( t ); 
 			}
 			comma_stack.pop();
 		}
@@ -660,6 +688,12 @@ AST* AST::getType() const {
 		case AT_STRING:
 			return new AST( AT_DATATYPE, "string", {} );
 			break;
+		case AT_ARRAY: {
+			std::vector<AST*> temp;
+			for( auto x : children ) 
+				temp.push_back( x->getType() );
+			return new AST( AT_ARRAY, "tuple", std::move( temp ) );
+		} break;
 		case AT_INLINE_SET: case AT_INLINE_LIST: 
 			if( children.size() == 0 )
 				throw compile_exception( "Type Error: Could not deduce type of empty set", -1 );
