@@ -27,7 +27,7 @@ y_lib.o: y_lib.cc
 YPP_FILES := $(wildcard ypp/*.ypp)
 OUT_FILES := $(addprefix bin/,$(notdir $(YPP_FILES:.ypp=)))
 
-bin/%: ypp/%.ypp
+bin/%: ypp/%.ypp y++
 	./y++ $< $@
 
 bin:
