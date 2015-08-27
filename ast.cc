@@ -11,11 +11,12 @@
 #include "ast.h"
 
 const map< string, tuple< int, associativity, bool > > operator_precedence {
+	{".",make_tuple(0,RIGHT,false)},	// VSO to SVO
 	{"!",make_tuple(0,RIGHT,true)},		// sort list
 	{"?",make_tuple(0,RIGHT,true)},		// shuffle list
 	{"#",make_tuple(0,RIGHT,true)},		// count elements list/set
 	{"@",make_tuple(1,LEFT,false)},		// list indexing
-	{".",make_tuple(1,LEFT,false)},		// set contains (temp)
+	{"\\",make_tuple(1,LEFT,false)},	// set contains (temp)
 	{"<->",make_tuple(2,LEFT,false)},	// swap elements
 	{"<~>",make_tuple(2,RIGHT,false)},	//
 	{"^",make_tuple(3,RIGHT,false)},	// exponentiation
@@ -44,7 +45,7 @@ const map<string, string> operator_synonyms {
 	{"sort","!"},
 	{"sizeof","#"},
 	{"swap","<->"},
-	{"contains","."},	// these symbols are temporary, to be replaced with unicode
+	{"contains","\\"},	// these symbols are temporary, to be replaced with unicode
 	{"as","~"}			//
 };
 
@@ -170,13 +171,22 @@ Tokens::Tokens( const string& s ) {
 				} else if( s[i] == ',' ) { // argument seperator
 					u.push_back( ',' );
 					u.type = COMMA;
-				} else if( s[i] == '.' ) { // float
-					if( mode == MODE_INT )
+				} else if( s[i] == '.' ) { // float or dot operator
+					if( mode == MODE_INT ) {
 						mode = MODE_FLOAT;
-					else
-						throw compile_exception( "Unexpected '.'", i );
-					t.push_back( s[i] );
-					terminate = false;
+						t.push_back( s[i] );  // dot operator and floats do not work well together. adding a space in ypp source will fix issues
+						terminate = false;
+					} else if( mode != MODE_FLOAT || t.empty() ){
+						if( i+1 < n && !isdigit( s[i+1] ) ) {
+							if( mode == MODE_FLOAT )
+								mode = MODE_NONE;
+							u.push_back('.');
+							u.type = OPERATOR;
+						} else {
+							t.push_back( s[i] );
+							terminate = false;
+						}
+					}
 				} else if( operator_precedence.find( string( 1, s[i] ) ) != operator_precedence.end() ) { // single-character operator
 					u.push_back( s[i] );
 					u.type = OPERATOR;
@@ -389,8 +399,8 @@ AST* Tokens::loopYard( int& n ) const {
 AST* Tokens::junkYard( int i, int n ) const { // converts statement tokens to AST using shuntingYard
 	/*for( int k = i; k < n; k++ )
 		std::cerr << at(k).str() << "$" << at(k).type << "|";*/
-	
 	Tokens postfix = shuntingYard( i, n );
+
 	int k = postfix.size();
 	return postfix.loopYard( k );
 }

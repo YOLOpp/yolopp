@@ -1,0 +1,14 @@
+function string repeat( string x, int n ) [
+	string r,
+	for( i in (0:n) ) [
+		r = r + x
+	],
+	return r
+],
+
+list int x = [1,2,3,4,5],
+x.pop(),
+print( x as string + "\n" ),
+
+string batman = "NA".repeat( 8 ),
+print( batman + " BATMAN!\n" ),

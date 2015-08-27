@@ -71,7 +71,7 @@ int main(int argc,char **argv){
 
 	pid_t pid=fork();
 	if(pid==0){
-		execlp("clang++","clang++","-o",outfname.c_str(),tempfname.c_str(),"y_lib.o","-Wall","-Wextra","-pedantic","-O3","-std=c++11","-lgmp","-lgmpxx",NULL);
+		execlp("clang++","clang++","-o",outfname.c_str(),tempfname.c_str(),"y_lib.o","-Wall","-Wextra","-pedantic","-O3","-Wno-unused-variable","-std=c++11","-lgmp","-lgmpxx",NULL);
 		perror("execlp");
 		return 1;
 	}

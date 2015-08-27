@@ -155,6 +155,17 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				ss << ">( ";
 				children.at(0)->translateItem( ss, translatePath, indent, false );
 				ss << " )";
+			} else if( functionName == "operator." ) {
+				if( children.at(1)->type == AT_FUNCTIONCALL ) {
+					ss << findFunctionName( children.at(1)->val, translatePath ) << "( ";
+					children.at(0)->translateItem( ss, translatePath, indent, false );
+					for( AST* child: children.at(1)->children ) {
+						ss << ", ";
+						child->translateItem( ss, translatePath, indent, false );
+					}
+					ss << " )";
+				} else
+					throw translate_exception( "Expected function after '.'" );
 			} else {
 				if( functionName == "operator-u" )
 					functionName = "operator-";
@@ -162,7 +173,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 					functionName = "std::swap";
 				else if( functionName == "operator?" )
 					functionName = "shuffle";
-				else if( functionName == "operator." )
+				else if( functionName == "operator\\" )
 					functionName = "contains";
 				else if( functionName == "operator#" )
 					functionName = "size_of";
@@ -225,8 +236,10 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				ss << "t_int";
 			else
 				ss << "t_float";
-		case AT_STRING:
 			ss << "(" << val << ")"; //temp
+		break;
+		case AT_STRING:
+			ss << "t_string(" << val << ")"; //temp
 		break;
 		case AT_WORD:
 			ss << "v_" << val;
