@@ -1,4 +1,11 @@
+.PHONY: all clean remake
+
 all: y++ ypp_all_source
+
+clean:
+	rm -f *.o *.dSYM y++ bin/*
+
+remake: clean all
 
 main.o: main.cpp
 	g++ -c main.cpp -Wall -std=c++11
@@ -23,4 +30,7 @@ OUT_FILES := $(addprefix bin/,$(notdir $(YPP_FILES:.ypp=)))
 bin/%: ypp/%.ypp
 	./y++ $< $@
 
-ypp_all_source: y++ y_lib.h $(OUT_FILES)
+bin:
+	mkdir bin
+
+ypp_all_source: y++ y_lib.h bin $(OUT_FILES)
