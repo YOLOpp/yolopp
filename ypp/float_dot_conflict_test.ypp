@@ -1,0 +1,13 @@
+function string type( int x ) [
+	return "Integer " + (x as string)
+],
+
+function string type( float x ) [
+	return "Float " + (x as string)
+],
+
+print( 5.type() as string + "\n" ),
+print( 0.5.type() as string + "\n" ),
+print( .5.type() as string + "\n" ),
+print( 5..type() as string + "\n" ),
+print( 5.0.type() as string + "\n" )

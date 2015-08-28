@@ -172,20 +172,22 @@ Tokens::Tokens( const string& s ) {
 					u.push_back( ',' );
 					u.type = COMMA;
 				} else if( s[i] == '.' ) { // float or dot operator
-					if( mode == MODE_INT ) {
+					if( mode == MODE_INT && i+1<n && !isalpha( s[i+1] ) ) {
 						mode = MODE_FLOAT;
-						t.push_back( s[i] );  // dot operator and floats do not work well together. adding a space in ypp source will fix issues
+						t.push_back( s[i] );
 						terminate = false;
-					} else if( mode != MODE_FLOAT || t.empty() ){
-						if( i+1 < n && !isdigit( s[i+1] ) ) {
-							if( mode == MODE_FLOAT )
-								mode = MODE_NONE;
+					} else if( mode == MODE_FLOAT && t.empty() ) {
+						if( i+1<n && !isdigit( s[i+1] ) ) {
 							u.push_back('.');
 							u.type = OPERATOR;
+							mode = MODE_NONE;
 						} else {
 							t.push_back( s[i] );
 							terminate = false;
 						}
+					} else {
+						u.push_back('.');
+						u.type = OPERATOR;
 					}
 				} else if( operator_precedence.find( string( 1, s[i] ) ) != operator_precedence.end() ) { // single-character operator
 					u.push_back( s[i] );
