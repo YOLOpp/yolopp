@@ -5,23 +5,18 @@
 #include <set>
 #include <iostream>
 #include <fstream>
+#include <map>
 
-bool isBlock(ast_type_t type){
-	return type==AT_SYNCBLOCK||type==AT_ASYNCBLOCK||type==AT_FUNCTIONDEF;
-}
-
-set<string> functionNames = { "f_0_print", "f_0_input", "f_0_push", "f_0_pop", "f_0_insert", "f_0_remove" };
+set<string> builtinFunctionNames = { "print", "input", "push", "pop", "insert", "remove" };
+//map<string,vector<pair<AST*,string>>> spaceNames;
 
 string AST::translate(void){
 	stringstream ss;
 	TranslatePath translatePath;
 	ss << "#include \"./../y_lib.h\"\n";  // WILL BE REPLACED WITH <> ONCE STUCTURE IS ADDED TO THE PATH
-	// global stuff
-	/*ss << "typedef mpz_class t_int;\n";
-	ss << "t_int v_argc;\nchar** v_argv;\n";
-	ss << "void f_0_print(std::string s){std::cout<<s;}\nstd::string f_0_input(void){std::string s;std::getline(std::cin,s);return s;}\n";
-	ss << "std::string f_0_to_string(t_int x){return x.get_str();}\n";*/
 
+	// spaces
+	pullSpaces( ss, translatePath );
 	// functions
 	pullFunctions( ss, translatePath );
 	// main
@@ -83,7 +78,6 @@ void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) {
 	translatePath.push( this );
 	for( AST* node : children ) {
 		if( node->type == AT_FUNCTIONDEF ) {
-			functionNames.insert( "f_" + val + "_" + node->val );
 			node->printFunctionHeader( ss, val );
 			ss << ";" << endl;
 			node->children.at(2)->pullFunctions( ss, translatePath );
@@ -100,12 +94,37 @@ void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) {
 	translatePath.pop();
 }
 
+void AST::pullSpaces( stringstream& ss, TranslatePath& translatePath ) {
+	assert( type == AT_SYNCBLOCK || type == AT_ASYNCBLOCK );
+	translatePath.push( this );
+	for( AST* node : children ) {
+		if( node->type == AT_SPACEDEF ) {
+			ss << "struct s_" << val << "_" << node->val << ";\n"; 
+		} else if( node->type == AT_SYNCBLOCK || node->type == AT_ASYNCBLOCK )
+			node->pullFunctions( ss, translatePath );
+	}
+	for( AST* node : children ) {
+		if( node->type == AT_SPACEDEF ) {
+			vector<pair<AST*,string>> memberNames;
+			assert( node->children.at(0)->type == AT_ARRAY );
+			ss << "struct s_" << val << "_" << node->val << "{ ";
+			for( AST* member : node->children.at(0)->children ) {
+				assert( member->type == AT_VARIABLEDEF );
+				ss << member->children.at(0)->decodeTypename() << " " << member->val << "; ";
+				memberNames.push_back( make_pair( new AST( *member->children.at(0) ), member->val ) );
+			}
+			ss << "};\n";
+		}
+	}
+	translatePath.pop();
+}
+
 void AST::translateBlock( stringstream& ss, TranslatePath& translatePath, int indent ){
 	assert( type == AT_SYNCBLOCK || type == AT_ASYNCBLOCK );
 	ss << " {\n"; // add stuff for threading here
 	translatePath.push( this );
 	for( AST *node : children ) {
-		if( node->type != AT_FUNCTIONDEF )
+		if( node->type != AT_FUNCTIONDEF && node->type != AT_SPACEDEF )
 			node->translateItem( ss, translatePath, indent + 1 );
 	}
 	for( int i = 0; i < indent; i++ )
@@ -114,16 +133,40 @@ void AST::translateBlock( stringstream& ss, TranslatePath& translatePath, int in
 	translatePath.pop();
 }
 
-string AST::findFunctionName( string name, TranslatePath translatePath ) { // empty string means not found
-	string temp;
+string AST::findFunctionName( string name, TranslatePath translatePath ) {
+	if( builtinFunctionNames.count( name ) )
+		return "f_0_" + name;
 	while( !translatePath.empty() ) {
-		temp = "f_" + translatePath.top()->val + "_" + name;
-		if( functionNames.count( temp ) )
-			return temp;
+		for( const AST* item: translatePath.top()->children ) {
+			if( item->type == AT_FUNCTIONDEF && item->val == name )
+				return "f_" + translatePath.top()->val + "_" + name;
+		}
 		translatePath.pop();
 	}
 	return "";
-}
+} // empty string means not found
+
+AST* AST::findFunctionType( string name, TranslatePath translatePath ) { 
+	while( !translatePath.empty() ) {
+		for( const AST* item: translatePath.top()->children ) {
+			if( item->type == AT_FUNCTIONDEF && item->val == name )
+				return new AST( *item->children.at(0) );
+		}
+		translatePath.pop();
+	}
+	return nullptr;
+} // nullptr means not found
+
+AST* AST::findVariableType( string name, TranslatePath translatePath ) { // does not handle function arguments yet
+	while( !translatePath.empty() ) {
+		for( const AST* item: translatePath.top()->children ) {
+			if( item->type == AT_VARIABLEDEF && item->val == name )
+				return new AST( *item->children.at(0) );
+		}
+		translatePath.pop();
+	}
+	return nullptr;
+} // nullptr means not found
 
 void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int indent, bool typeless ){
 	if( typeless )
@@ -179,7 +222,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 					functionName = "size_of";
 				else if( functionName == "operator:" ) {
 					functionName = "t_range<";
-					AST* type = children.at(0)->getType();
+					AST* type = children.at(0)->getType( translatePath );
 					functionName += type->decodeTypename() + ">";
 					delete type->cascade();
 				} else if( functionName == "operator@" )
@@ -245,7 +288,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 			ss << "v_" << val;
 		break;
 		case AT_INLINE_LIST: case AT_INLINE_SET: {
-			AST* r = getType();
+			AST* r = getType( translatePath );
 			ss << "std::move(" << r->decodeTypename() << "({ ";
 			for( AST* child: children ) {
 				if( comma )
@@ -290,6 +333,48 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 	}
 	if( typeless )
 		ss << ";\n";
+}
+
+AST* AST::getType( const TranslatePath& translatePath ) const {
+	switch( type ) {
+		case AT_WORD: 
+			return findVariableType( val, translatePath );
+			break;
+		case AT_FUNCTIONCALL:
+			return findFunctionType( val, translatePath );
+			break;
+		case AT_NUMBER: 
+			return new AST( AT_DATATYPE, val.find('.') == string::npos ? "int": "float" , {} );
+			break;
+		case AT_STRING:
+			return new AST( AT_DATATYPE, "string", {} );
+			break;
+		case AT_ARRAY: {
+			std::vector<AST*> temp;
+			for( auto x : children ) 
+				temp.push_back( x->getType( translatePath ) );
+			return new AST( AT_ARRAY, "tuple", std::move( temp ) );
+		} break;
+		case AT_INLINE_SET: case AT_INLINE_LIST: 
+			if( children.size() == 0 )
+				throw compile_exception( "Type Error: Could not deduce type of empty set", -1 );
+			else {
+				AST *r = children.at(0)->getType( translatePath ), *c;
+				bool b;
+				for( size_t i = 1; i < children.size(); i++ ) {
+					c = children.at(1)->getType( translatePath );
+					b = r->compare( c );
+					delete c->cascade();
+					if( !b )
+						throw compile_exception( "Type Error: Could not deduce type of inline list/set", -1 );
+				}
+				return new AST( AT_DATATYPE, type == AT_INLINE_LIST ? "list" : "set", {r} );
+			}
+			break;
+		default:
+			throw compile_exception( "Type Error: Node " + to_string(type) + " has no datatype", -1 );
+	}
+	return nullptr;
 }
 
 const char* translate_exception::what() const noexcept {

@@ -4,8 +4,14 @@
 #include <exception>
 #include <stack>
 #include <sstream>
+#include <map>
+#include <set>
+#include <iostream>
 
 using namespace std;
+
+#define ASYNC_BRACKET	"{"
+#define SYNC_BRACKET	"["
 
 enum ast_type_t{
 	AT_FUNCTIONCALL, // val is function name; children are arguments
@@ -21,6 +27,7 @@ enum ast_type_t{
 	AT_ASYNCBLOCK, //children are the lines/statements of the block
 	AT_FUNCTIONDEF, // val is function name; children are return value, AT_ARRAY of arguments, body block (AT_(A)SYNCBLOCK)
 	AT_VARIABLEDEF, // val is variable name; child is type
+	AT_SPACEDEF, // val is space name; child is AT_ARRAY of member variables
 	AT_DATATYPE,
 	AT_FLOW // return, break, continue
 };
@@ -50,6 +57,11 @@ class AST;
 
 typedef stack<AST*> TranslatePath;
 
+extern vector<AST*> blockRegister;
+extern const map< string, tuple< int, associativity, bool > > operator_precedence;
+extern const set<string> keywords;
+extern const set<string> nonFinalTypenames;
+extern const set<string> finalTypenames;
 
 ostream& operator<<( ostream& os, const AST& ast );
 
@@ -64,15 +76,25 @@ public:
 	Tokens(const string&);
 	Tokens()=default;
 private:
+	bool isTypename( int i, const set<string>& typenames, bool tuples = true ) const;
+	bool isBlock( int i ) const;
+	bool isKeyword( int i ) const;
+	bool isVariable( int i, const set<string>& typenames ) const;
 	int bracketIterator( int i, int n ) const;
-	bool isTypename( int i ) const;
-	int resolveTypename( AST*& typename_result, int i, int n ) const;
-	int commaIterator( int i , int n ) const;
-	AST* loopYard( int& n ) const;
-	AST* junkYard( int i, int n ) const;
-	vector<AST*> graveYard( int i, int n ) const;
-	vector<AST*> scotlandYard( int i, int n, int& block_id ) const;
+	int commaIterator( int i, int n ) const;
+	int resolveTypename( AST*& typename_result, int i, int n, const set<string>& typenames ) const;
+	AST* getNamedTuple( int& i, int k, const set<string>& typenames ) const;
+	AST* statementTranslate( int i, int n ) const;
+	void spaceTranslateFirst( set<string>& spaceNames, int i, int n ) const;
+	void spaceTranslateSecond( vector<AST*>& block, int i, int n, const set<string>& typenames ) const;
+	void functionTranslate( vector<AST*>& block, int i, int n, const set<string>& typenames ) const;
+	void variableTranslate( vector<AST*>& block, int i, int n, const set<string>& typenames ) const;
+	AST* pseudoBlock( int& k, int i, int n, const set<string>& typenames, bool forceBlock = false ) const;
+	void keywordTranslate( vector<AST*>& block, int i, int n, const set<string>& typenames ) const;
+	void segmentTranslate( vector<AST*>& block, int i, int n, const set<string>& typenames ) const;
+	vector<AST*> blockTranslate( int i, int n, const set<string>& old_typenames ) const;
 	Tokens shuntingYard( int i, int n ) const;
+	AST* postfixTranslate( int& n ) const;
 	friend class AST;
 };
 
@@ -86,17 +108,21 @@ public:
 	AST( ast_type_t t );
 	AST( ast_type_t t, string v, vector<AST*> c );
 	AST( const Tokens& );
+	AST( const AST& ) = default;
 	~AST(); // non-recursive delete
 	string translate(void);
 	void translateBlock( stringstream& ss, TranslatePath&, int indent );
 	void translateItem( stringstream& ss, TranslatePath&, int indent, bool allow_block = true );
 	void printFunctionHeader( stringstream& ss, string x );
 	void pullFunctions( stringstream& ss, TranslatePath& translatePath );
+	void pullSpaces( stringstream& ss, TranslatePath& translatePath );
 	string decodeTypename();
 	bool compare( const AST* other ) const;
-	AST* getType() const;
+	AST* getType( const TranslatePath& ) const;
 	AST* cascade(); // recursive delete
 	static string findFunctionName( string name, TranslatePath translatePath );
+	static AST* findFunctionType( string name, TranslatePath translatePath );
+	static AST* findVariableType( string name, TranslatePath translatePath );
 	friend class Tokens;
 	friend ostream& operator<<( ostream& os, const AST& ast );
 };

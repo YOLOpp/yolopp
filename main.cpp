@@ -75,7 +75,6 @@ int main(int argc,char **argv){
 		perror("execlp");
 		return 1;
 	}
-	cerr<<"(pid="<<pid<<')'<<endl;
 	while(true){
 		int status;
 		pid_t w=waitpid(pid,&status,0);

@@ -13,11 +13,20 @@ main.o: main.cpp
 translate.o: translate.cpp
 	g++ -c translate.cpp -Wall -std=c++11
 
+tokenize.o: tokenize.cc
+	g++ -c tokenize.cc -Wall -std=c++11
+
+compile.o: compile.cc
+	g++ -c compile.cc -Wall -std=c++11
+
+postfix.o: postfix.cc
+	g++ -c postfix.cc -Wall -std=c++11
+
 ast.o: ast.cc
 	g++ -c ast.cc -Wall -std=c++11
 
-y++: main.o translate.o ast.o y_lib.o
-	g++ -o y++ translate.o ast.o main.o
+y++: main.o translate.o ast.o tokenize.o compile.o postfix.o
+	g++ -o y++ tokenize.o compile.o postfix.o translate.o ast.o main.o
 
 y_lib.o: y_lib.cc
 	g++ -c y_lib.cc -o y_lib.o -Wall -std=c++11
