@@ -1,0 +1,7 @@
+space vector (int x, int y, int z),
+
+function string square_length( vector v )
+	return "I take a vector",
+
+vector v,
+v.square_length()

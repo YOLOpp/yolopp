@@ -55,7 +55,7 @@ struct Token;
 class Tokens;
 class AST;
 
-typedef stack<AST*> TranslatePath;
+typedef stack<const AST*> TranslatePath;
 
 extern vector<AST*> blockRegister;
 extern const map< string, tuple< int, associativity, bool > > operator_precedence;
@@ -110,17 +110,18 @@ public:
 	AST( const Tokens& );
 	AST( const AST& ) = default;
 	~AST(); // non-recursive delete
-	string translate(void);
-	void translateBlock( stringstream& ss, TranslatePath&, int indent );
-	void translateItem( stringstream& ss, TranslatePath&, int indent, bool allow_block = true );
-	void printFunctionHeader( stringstream& ss, string x );
-	void pullFunctions( stringstream& ss, TranslatePath& translatePath );
-	void pullSpaces( stringstream& ss, TranslatePath& translatePath );
-	string decodeTypename();
+	string translate(void) const;
+	void translateBlock( stringstream& ss, TranslatePath&, int indent ) const;
+	void translateItem( stringstream& ss, TranslatePath&, int indent, bool allow_block = true ) const;
+	void printFunctionHeader( stringstream& ss, string x, const TranslatePath& translatePath ) const;
+	void pullFunctions( stringstream& ss, TranslatePath& translatePath ) const;
+	void pullSpaces( stringstream& ss, TranslatePath& translatePath ) const;
+	string decodeTypename( const TranslatePath& ) const;
 	bool compare( const AST* other ) const;
 	AST* getType( const TranslatePath& ) const;
 	AST* cascade(); // recursive delete
 	static string findFunctionName( string name, TranslatePath translatePath );
+	static string findSpaceName( string name, TranslatePath translatePath );
 	static AST* findFunctionType( string name, TranslatePath translatePath );
 	static AST* findVariableType( string name, TranslatePath translatePath );
 	friend class Tokens;

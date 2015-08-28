@@ -10,7 +10,7 @@
 set<string> builtinFunctionNames = { "print", "input", "push", "pop", "insert", "remove" };
 //map<string,vector<pair<AST*,string>>> spaceNames;
 
-string AST::translate(void){
+string AST::translate() const {
 	stringstream ss;
 	TranslatePath translatePath;
 	ss << "#include \"./../y_lib.h\"\n";  // WILL BE REPLACED WITH <> ONCE STUCTURE IS ADDED TO THE PATH
@@ -29,7 +29,7 @@ string AST::translate(void){
 	return ss.str();
 }
 
-string AST::decodeTypename() {
+string AST::decodeTypename( const TranslatePath& translatePath ) const {
 	string r;
 	bool comma = false;
 	if( type == AT_ARRAY ) {
@@ -38,7 +38,7 @@ string AST::decodeTypename() {
 			if( comma )
 				r += ",";
 			comma = true;
-			r += child->decodeTypename();
+			r += child->decodeTypename( translatePath );
 		}
 		r += ">";
 	} else if( type == AT_DATATYPE ) {
@@ -48,37 +48,37 @@ string AST::decodeTypename() {
 				if( comma )
 					r += ",";
 				comma = true;
-				r += child->decodeTypename();
+				r += child->decodeTypename( translatePath );
 			}
 			r += ">";
 		} else 
-			r = "t_" + val;		
+			r = findSpaceName( val, translatePath );
 	} else 
 		translate_exception( "Node " + to_string(type) + " is not a typename" );
 	return r;
 }
 
-void AST::printFunctionHeader( stringstream& ss, string x ) {
+void AST::printFunctionHeader( stringstream& ss, string x, const TranslatePath& translatePath ) const {
 	assert( type == AT_FUNCTIONDEF );
-	ss << children.at(0)->decodeTypename();
+	ss << children.at(0)->decodeTypename( translatePath );
 	ss << " f_" << x << "_" << val << "( ";
 	bool comma = false;
 	for( AST* argument : children.at(1)->children ) {
 		if( comma )
 			ss << ", ";
 		comma = true;
-		ss << argument->children.at(0)->decodeTypename();
+		ss << argument->children.at(0)->decodeTypename( translatePath );
 		ss << " v_" << argument->val;
 	}
 	ss << " )";
 }
 
-void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) {
+void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) const {
 	assert( type == AT_SYNCBLOCK || type == AT_ASYNCBLOCK );
 	translatePath.push( this );
 	for( AST* node : children ) {
 		if( node->type == AT_FUNCTIONDEF ) {
-			node->printFunctionHeader( ss, val );
+			node->printFunctionHeader( ss, val, translatePath );
 			ss << ";" << endl;
 			node->children.at(2)->pullFunctions( ss, translatePath );
 		} else if( node->type == AT_SYNCBLOCK || node->type == AT_ASYNCBLOCK )
@@ -86,7 +86,7 @@ void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) {
 	}
 	for( AST* node : children ) {
 		if( node->type == AT_FUNCTIONDEF ) {
-			node->printFunctionHeader( ss, val );
+			node->printFunctionHeader( ss, val, translatePath );
 			node->children.at(2)->translateBlock( ss, translatePath, 0 );
 			ss << endl;
 		}
@@ -94,7 +94,7 @@ void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) {
 	translatePath.pop();
 }
 
-void AST::pullSpaces( stringstream& ss, TranslatePath& translatePath ) {
+void AST::pullSpaces( stringstream& ss, TranslatePath& translatePath ) const {
 	assert( type == AT_SYNCBLOCK || type == AT_ASYNCBLOCK );
 	translatePath.push( this );
 	for( AST* node : children ) {
@@ -110,7 +110,7 @@ void AST::pullSpaces( stringstream& ss, TranslatePath& translatePath ) {
 			ss << "struct s_" << val << "_" << node->val << "{ ";
 			for( AST* member : node->children.at(0)->children ) {
 				assert( member->type == AT_VARIABLEDEF );
-				ss << member->children.at(0)->decodeTypename() << " " << member->val << "; ";
+				ss << member->children.at(0)->decodeTypename( translatePath ) << " " << member->val << "; ";
 				memberNames.push_back( make_pair( new AST( *member->children.at(0) ), member->val ) );
 			}
 			ss << "};\n";
@@ -119,7 +119,7 @@ void AST::pullSpaces( stringstream& ss, TranslatePath& translatePath ) {
 	translatePath.pop();
 }
 
-void AST::translateBlock( stringstream& ss, TranslatePath& translatePath, int indent ){
+void AST::translateBlock( stringstream& ss, TranslatePath& translatePath, int indent ) const {
 	assert( type == AT_SYNCBLOCK || type == AT_ASYNCBLOCK );
 	ss << " {\n"; // add stuff for threading here
 	translatePath.push( this );
@@ -140,6 +140,19 @@ string AST::findFunctionName( string name, TranslatePath translatePath ) {
 		for( const AST* item: translatePath.top()->children ) {
 			if( item->type == AT_FUNCTIONDEF && item->val == name )
 				return "f_" + translatePath.top()->val + "_" + name;
+		}
+		translatePath.pop();
+	}
+	return "";
+} // empty string means not found
+
+string AST::findSpaceName( string name, TranslatePath translatePath ) {
+	if( finalTypenames.count( name ) || nonFinalTypenames.count( name ) )
+		return "t_" + name;
+	while( !translatePath.empty() ) {
+		for( const AST* item: translatePath.top()->children ) {
+			if( item->type == AT_SPACEDEF && item->val == name )
+				return "s_" + translatePath.top()->val + "_" + name;
 		}
 		translatePath.pop();
 	}
@@ -168,7 +181,7 @@ AST* AST::findVariableType( string name, TranslatePath translatePath ) { // does
 	return nullptr;
 } // nullptr means not found
 
-void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int indent, bool typeless ){
+void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int indent, bool typeless ) const {
 	if( typeless )
 		for( int i = 0; i < indent; i++ )
 			ss << "\t";
@@ -223,7 +236,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				else if( functionName == "operator:" ) {
 					functionName = "t_range<";
 					AST* type = children.at(0)->getType( translatePath );
-					functionName += type->decodeTypename() + ">";
+					functionName += type->decodeTypename( translatePath ) + ">";
 					delete type->cascade();
 				} else if( functionName == "operator@" )
 					functionName = "at";
@@ -272,7 +285,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				throw translate_exception( "Unexpected block" );
 		break;
 		case AT_VARIABLEDEF:
-			ss << children.at(0)->decodeTypename() << " v_" << val;
+			ss << children.at(0)->decodeTypename( translatePath ) << " v_" << val;
 		break;
 		case AT_NUMBER: 
 			if( val.find('.') == string::npos )
@@ -289,7 +302,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 		break;
 		case AT_INLINE_LIST: case AT_INLINE_SET: {
 			AST* r = getType( translatePath );
-			ss << "std::move(" << r->decodeTypename() << "({ ";
+			ss << "std::move(" << r->decodeTypename( translatePath ) << "({ ";
 			for( AST* child: children ) {
 				if( comma )
 					ss << ", ";
@@ -326,7 +339,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				throw translate_exception( "Unexpected flow statement" );
 		break;
 		case AT_DATATYPE:
-			ss << decodeTypename();
+			ss << decodeTypename( translatePath );
 		break;
 		default:
 			throw translate_exception( "Unexpected node " + to_string( type ) + " as translation item" );

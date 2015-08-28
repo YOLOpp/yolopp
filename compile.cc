@@ -124,7 +124,7 @@ AST* Tokens::statementTranslate( int i, int n ) const {
 void Tokens::spaceTranslateFirst( set<string>& spaceNames, int i, int n ) const {
 	assert( at(i).str() == "space" );
 	
-	if( at(i+1).type == VARIABLE )
+	if( at(i+1).type == FUNCTION )
 		spaceNames.insert( at(i+1).str() );
 	else
 		throw compile_exception( "Expected typename after space", i );
@@ -139,7 +139,7 @@ void Tokens::spaceTranslateSecond( vector<AST*>& block, int i, int n, const set<
 	i += 2;
 	structure = getNamedTuple( i, n, typenames );
 
-	if( i <= n )
+	if( i+1 < n )
 		throw compile_exception( "Unexpected end of space definition", i );
 	block.push_back( new AST( AT_SPACEDEF, spaceName, {structure} ) );
 }
@@ -160,14 +160,10 @@ void Tokens::functionTranslate( vector<AST*>& block, int i, int n, const set<str
 	if( at(i).type != FUNCTION )
 		throw compile_exception( "Expected function name", i );
 	functionName = at(i).str();
-
 	i += 1;
 
 	parameters = getNamedTuple( i, n, typenames );
 	i += 1;
-
-	if( at(i).type != LEFT_BRACKET || at(i).str() == "(" )
-		throw compile_exception( "Expected function block", i );
 
 	block.push_back( new AST( AT_FUNCTIONDEF, functionName, { returnType, parameters, pseudoBlock( k, i, n, typenames, true ) } ) );
 }
@@ -195,7 +191,16 @@ AST* Tokens::pseudoBlock( int& k, int i, int n, const set<string>& typenames, bo
 		block = encapsulateBlock( blockTranslate( i+1, k, typenames ), at(i).str() );
 	} else {
 		k = commaIterator( i, n );
-		block = statementTranslate( i, k-1 );
+		if( isKeyword( i ) ) {
+			vector<AST*> temp;
+			keywordTranslate( temp, i, n, typenames );
+			block = temp.back();
+		} else if( !isTypename( i, typenames ) )
+			block = statementTranslate( i, n );
+		else
+			throw compile_exception( "Illegal action in bracketless block", i );
+			
+		std::cerr << (*block) << std::endl;
 		if( forceBlock )
 			block = encapsulateBlock( { block }, SYNC_BRACKET );
 	}

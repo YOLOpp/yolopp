@@ -25,7 +25,7 @@ postfix.o: postfix.cc
 ast.o: ast.cc
 	g++ -c ast.cc -Wall -std=c++11
 
-y++: main.o translate.o ast.o tokenize.o compile.o postfix.o
+y++: main.o translate.o ast.o tokenize.o compile.o postfix.o y_lib.o
 	g++ -o y++ tokenize.o compile.o postfix.o translate.o ast.o main.o
 
 y_lib.o: y_lib.cc
