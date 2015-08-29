@@ -146,7 +146,7 @@ void AST::pullSpaces( stringstream& ss, TranslatePath& translatePath, SpaceRefer
 				ss << param.second << "(std::get<" << i << ">(x))";
 				i++;
 			}
-			ss << "{};\n\t";
+			ss << "{}\n\t";
 			ss << name << "& operator=(t_tuple<";
 			comma = false;
 			for( auto& param : memberNames ) {
@@ -286,6 +286,12 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 					ss << " )";
 				} else
 					throw translate_exception( "Expected function after '.'" );
+			} else if( functionName == "operator->" ) {
+				ss << "((";
+				children.at(0)->translateItem( ss, translatePath, indent, false );
+				ss << ").";
+				children.at(1)->translateItem( ss, translatePath, indent, false );
+				ss << ")";
 			} else {
 				if( functionName == "operator-u" )
 					functionName = "operator-";

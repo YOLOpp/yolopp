@@ -21,7 +21,8 @@ const set<string> finalTypenames {
 const set<string> nonFinalTypenames { "set", "list" };
 
 const map< string, tuple< int, associativity, bool > > operator_precedence {
-	{".",make_tuple(0,RIGHT,false)},	// VSO to SVO
+	{"->",make_tuple(-1,LEFT,false)},	// member variable by name
+	{".",make_tuple(-1,LEFT,false)},	// VSO to SVO
 	{"!",make_tuple(0,RIGHT,true)},		// sort list
 	{"?",make_tuple(0,RIGHT,true)},		// shuffle list
 	{"#",make_tuple(0,RIGHT,true)},		// count elements list/set

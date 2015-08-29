@@ -1,0 +1,5 @@
+space foo ( string yolo, int swag ),
+
+foo bar = ( "++", 0 ),
+
+print( bar->yolo + " " + ( bar->swag as string ) + "\n" )

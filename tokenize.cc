@@ -50,7 +50,10 @@ Tokens::Tokens( const string& s ) {
 				terminate = true;
 				if( s[i] == '-' ) { // minus
 					u.push_back( '-' ); 
-					if( !( back().type == RIGHT_BRACKET || back().type == VARIABLE || back().type == FLOAT || back().type == INTEGER || back().type == STRING ) ) // unary minus
+					if( i+1<n && s[i+1] == '>' ) { // -> operator
+						u.push_back( '>' );
+						i++;
+					} else if( !( back().type == RIGHT_BRACKET || back().type == VARIABLE || back().type == FLOAT || back().type == INTEGER || back().type == STRING ) ) // unary minus
 						u.push_back( 'u' ); 
 					u.type = OPERATOR;
 				} else if( s[i] == '<' ) {
