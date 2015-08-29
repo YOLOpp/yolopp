@@ -199,8 +199,7 @@ AST* Tokens::pseudoBlock( int& k, int i, int n, const set<string>& typenames, bo
 			block = statementTranslate( i, n );
 		else
 			throw compile_exception( "Illegal action in bracketless block", i );
-			
-		std::cerr << (*block) << std::endl;
+		
 		if( forceBlock )
 			block = encapsulateBlock( { block }, SYNC_BRACKET );
 	}

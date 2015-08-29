@@ -56,6 +56,7 @@ class Tokens;
 class AST;
 
 typedef stack<const AST*> TranslatePath;
+typedef vector<map<string,pair<string,string>>> SpaceReference;
 
 extern vector<AST*> blockRegister;
 extern const map< string, tuple< int, associativity, bool > > operator_precedence;
@@ -115,11 +116,12 @@ public:
 	void translateItem( stringstream& ss, TranslatePath&, int indent, bool allow_block = true ) const;
 	void printFunctionHeader( stringstream& ss, string x, const TranslatePath& translatePath ) const;
 	void pullFunctions( stringstream& ss, TranslatePath& translatePath ) const;
-	void pullSpaces( stringstream& ss, TranslatePath& translatePath ) const;
+	void pullSpaces( stringstream& ss, TranslatePath& translatePath, SpaceReference& spaceReference ) const;
 	string decodeTypename( const TranslatePath& ) const;
 	bool compare( const AST* other ) const;
 	AST* getType( const TranslatePath& ) const;
 	AST* cascade(); // recursive delete
+	bool isSpace() const;
 	static string findFunctionName( string name, TranslatePath translatePath );
 	static string findSpaceName( string name, TranslatePath translatePath );
 	static AST* findFunctionType( string name, TranslatePath translatePath );
@@ -127,6 +129,8 @@ public:
 	friend class Tokens;
 	friend ostream& operator<<( ostream& os, const AST& ast );
 };
+
+void referenceSpaces( stringstream& ss, const SpaceReference& spaceReference );
 
 class compile_exception : public exception {
 public:

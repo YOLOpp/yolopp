@@ -8,7 +8,6 @@
 #include <map>
 
 set<string> builtinFunctionNames = { "print", "input", "push", "pop", "insert", "remove" };
-//map<string,vector<pair<AST*,string>>> spaceNames;
 
 string AST::translate() const {
 	stringstream ss;
@@ -16,7 +15,9 @@ string AST::translate() const {
 	ss << "#include \"./../y_lib.h\"\n";  // WILL BE REPLACED WITH <> ONCE STUCTURE IS ADDED TO THE PATH
 
 	// spaces
-	pullSpaces( ss, translatePath );
+	SpaceReference spaceReference;
+	pullSpaces( ss, translatePath, spaceReference );
+	referenceSpaces( ss, spaceReference );
 	// functions
 	pullFunctions( ss, translatePath );
 	// main
@@ -58,6 +59,10 @@ string AST::decodeTypename( const TranslatePath& translatePath ) const {
 	return r;
 }
 
+bool AST::isSpace() const {
+	return ( type == AT_DATATYPE && !( nonFinalTypenames.count( val ) || finalTypenames.count( val ) ) );
+}
+
 void AST::printFunctionHeader( stringstream& ss, string x, const TranslatePath& translatePath ) const {
 	assert( type == AT_FUNCTIONDEF );
 	ss << children.at(0)->decodeTypename( translatePath );
@@ -94,29 +99,80 @@ void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) const 
 	translatePath.pop();
 }
 
-void AST::pullSpaces( stringstream& ss, TranslatePath& translatePath ) const {
+void AST::pullSpaces( stringstream& ss, TranslatePath& translatePath, SpaceReference& spaceReference ) const {
 	assert( type == AT_SYNCBLOCK || type == AT_ASYNCBLOCK );
 	translatePath.push( this );
 	for( AST* node : children ) {
 		if( node->type == AT_SPACEDEF ) {
-			ss << "struct s_" << val << "_" << node->val << ";\n"; 
+			ss << "struct s_" << val << "_" << node->val << ";\n";
 		} else if( node->type == AT_SYNCBLOCK || node->type == AT_ASYNCBLOCK )
-			node->pullFunctions( ss, translatePath );
+			node->pullSpaces( ss, translatePath, spaceReference );
 	}
+	// all typenames are known here
 	for( AST* node : children ) {
 		if( node->type == AT_SPACEDEF ) {
-			vector<pair<AST*,string>> memberNames;
+			vector<pair<string,string>> memberNames;
 			assert( node->children.at(0)->type == AT_ARRAY );
-			ss << "struct s_" << val << "_" << node->val << "{ ";
+			string name = "s_" + val + "_" + node->val;
+			ss << "struct " << name << "{ ";
+			size_t i = 0;
 			for( AST* member : node->children.at(0)->children ) {
 				assert( member->type == AT_VARIABLEDEF );
-				ss << member->children.at(0)->decodeTypename( translatePath ) << " " << member->val << "; ";
-				memberNames.push_back( make_pair( new AST( *member->children.at(0) ), member->val ) );
+				string sTypename = member->children.at(0)->decodeTypename( translatePath );
+				ss << sTypename << " v_" << member->val << "; ";
+				memberNames.push_back( make_pair( sTypename, "v_" + member->val ) );
+				if( spaceReference.size() <= i )
+					spaceReference.emplace_back();
+				spaceReference.at(i).insert( make_pair( name, make_pair( sTypename, "v_" + member->val ) ) );
+				i++;
 			}
-			ss << "};\n";
+			ss << "\n\t" << name << "()=default; " << name << "(" << name << "&&)=default; " << name << "(const " << name << "&)=default; ";
+			ss << name << "& operator=(const " << name << "&)=default; " << name << "& operator=(" << name << "&&)=default; ~" << name << "()=default;";
+			ss << "\n\t" << name << "(const t_tuple<";
+			bool comma = false;
+			for( auto& param : memberNames ) {
+				if( comma )
+					ss << ",";
+				comma = true;
+				ss << param.first;
+			}
+			ss << ">& x) : ";
+			i = 0;
+			comma = false;
+			for( auto& param : memberNames ) {
+				if( comma )
+					ss << ",";
+				comma = true;
+				ss << param.second << "(std::get<" << i << ">(x))";
+				i++;
+			}
+			ss << "{};\n\t";
+			ss << name << "& operator=(t_tuple<";
+			comma = false;
+			for( auto& param : memberNames ) {
+				if( comma )
+					ss << "&&,";
+				comma = true;
+				ss << param.first;
+			}
+			ss << "> x) { ";
+			i = 0;
+			for( auto& param : memberNames )
+				ss << param.second << "=std::get<" << i++ << ">(x); ";
+			ss << "return *this; }\n};\n";
 		}
 	}
 	translatePath.pop();
+}
+
+void referenceSpaces( stringstream& ss, const SpaceReference& spaceReference ) {
+	ss << "template<size_t> struct space {};\n";
+	for( size_t i = 0; i < spaceReference.size(); i++ ) {
+		ss <<  "template<> struct space<" << i << "> {\n";
+		for( const auto& p : spaceReference.at( i ) )
+			ss << "\tstatic constexpr " << p.second.first << "& from( " << p.first << "& x ) { return x." << p.second.second << "; }\n";
+		ss << "};\n";
+	}
 }
 
 void AST::translateBlock( stringstream& ss, TranslatePath& translatePath, int indent ) const {
@@ -202,9 +258,17 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << "))";
 			} else if( functionName == "operator@" && children.at(1)->type == AT_NUMBER ) { // TODO: allow expressions like 3*5+1
-				ss << "special_at<" << children.at(1)->val << ">( "; 
-				children.at(0)->translateItem( ss, translatePath, indent, false );
-				ss << ")";
+				AST* typeTree = children.at(0)->getType( translatePath );
+				if( typeTree->isSpace() ) {
+					ss << "space<" << children.at(1)->val << ">::from( "; 
+					children.at(0)->translateItem( ss, translatePath, indent, false );
+					ss << ")";
+				} else {
+					ss << "special_at<" << children.at(1)->val << ">( "; 
+					children.at(0)->translateItem( ss, translatePath, indent, false );
+					ss << ")";
+				}
+				delete typeTree;
 			} else if( functionName == "static_cast" ) {
 				ss << "cast<";
 				children.at(1)->translateItem( ss, translatePath, indent, false );

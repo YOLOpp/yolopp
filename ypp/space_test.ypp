@@ -1,7 +1,9 @@
 space vector (int x, int y, int z),
 
-function string square_length( vector v )
-	return "I take a vector",
+function int square_length( vector v )
+	return (v @ 0)*(v @ 0) + (v @ 1)*(v @ 1) + (v @ 2)*(v @ 2),
 
-vector v,
-v.square_length()
+vector v = (0,2,3),
+v @ 0 = 1,
+
+print( v.square_length() as string + "\n" )
