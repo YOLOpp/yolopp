@@ -1,0 +1,7 @@
+bool x = true,
+bool y = false,
+
+print( ( x ∨ y ) as string + "\n" ),
+print( ( x ∧ y ) as string + "\n" ),
+print( ( x ⊻ y ) as string + "\n" ),
+print( ( ¬x ) as string + "\n" )
