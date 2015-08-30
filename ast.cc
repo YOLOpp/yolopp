@@ -15,7 +15,8 @@ const set<string> finalTypenames {
 	"int",
 	"string", 
 	"rat",
-	"float"
+	"float",
+	"bool"
 };
 
 const set<string> nonFinalTypenames { "set", "list" };
@@ -27,13 +28,14 @@ const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{"?",make_tuple(0,RIGHT,true)},		// shuffle list
 	{"#",make_tuple(0,RIGHT,true)},		// count elements list/set
 	{"@",make_tuple(1,LEFT,false)},		// list indexing
-	{"\\",make_tuple(1,LEFT,false)},	// set contains (temp)
+	{"\u220A",make_tuple(1,LEFT,false)},	// set contains
 	{"<->",make_tuple(2,LEFT,false)},	// swap elements
 	{"<~>",make_tuple(2,RIGHT,false)},	//
 	{"^",make_tuple(3,RIGHT,false)},	// exponentiation
 	{"-u",make_tuple(4,RIGHT,true)},	// unary minus
 	{"*",make_tuple(5,LEFT,false)},		// multiplication
 	{"/",make_tuple(5,LEFT,false)},		// division
+	{"\u00AC",make_tuple(6,RIGHT,true)},	// not
 	{"+",make_tuple(6,LEFT,false)},		// addition
 	{"-",make_tuple(6,LEFT,false)},		// subtraction
 	{":",make_tuple(7,LEFT,false)},		// range construction
@@ -44,9 +46,9 @@ const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{">=",make_tuple(13,LEFT,false)},	// at least
 	{"==",make_tuple(14,LEFT,false)},	// equal to
 	{"<>",make_tuple(14,LEFT,false)},	// less-than or more-than ( not equal to )
-	{"&&",make_tuple(15,LEFT,false)},	// and
-	{"^^",make_tuple(16,LEFT,false)},	// xor
-	{"||",make_tuple(17,LEFT,false)},	// or
+	{"\u2227",make_tuple(15,LEFT,false)},	// and
+	{"\u22BB",make_tuple(16,LEFT,false)},	// xor
+	{"\u2228",make_tuple(17,LEFT,false)},	// or
 	{"=",make_tuple(18,RIGHT,false)}	// asignment
 };
 

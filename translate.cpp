@@ -244,22 +244,16 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 	bool comma = false;
 	switch( type ) {
 		case AT_FUNCTIONCALL: {
-			string functionName;
-			if( val.at(0) == '@' )
-				functionName = val.substr( 1 );
-			else
-				functionName = findFunctionName( val, translatePath ); // this ruins function overloading
-			if( functionName == "" )
-				throw translate_exception( "Unknown function " + val );
-			if( functionName == "operator=" ) {
+			if( val == "=" ) {
 				ss << "((";
 				children.at(0)->translateItem( ss, translatePath, indent, false );
 				ss << ")=(";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << "))";
-			} else if( functionName == "operator@" && children.at(1)->type == AT_NUMBER ) { // TODO: allow expressions like 3*5+1
-				AST* typeTree = children.at(0)->getType( translatePath );
-				if( typeTree->isSpace() ) {
+			} else if( val == "@" && children.at(1)->type == AT_NUMBER ) {  // TO FIX
+				AST* typeTree = nullptr;
+				typeTree = children.at(0)->getType( translatePath );
+				if( typeTree && typeTree->isSpace() ) {
 					ss << "space<" << children.at(1)->val << ">::from( "; 
 					children.at(0)->translateItem( ss, translatePath, indent, false );
 					ss << ")";
@@ -269,13 +263,13 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 					ss << ")";
 				}
 				delete typeTree;
-			} else if( functionName == "static_cast" ) {
+			} else if( val == "~" ) {
 				ss << "cast<";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << ">( ";
 				children.at(0)->translateItem( ss, translatePath, indent, false );
 				ss << " )";
-			} else if( functionName == "operator." ) {
+			} else if( val == "." ) {
 				if( children.at(1)->type == AT_FUNCTIONCALL ) {
 					ss << findFunctionName( children.at(1)->val, translatePath ) << "( ";
 					children.at(0)->translateItem( ss, translatePath, indent, false );
@@ -286,30 +280,28 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 					ss << " )";
 				} else
 					throw translate_exception( "Expected function after '.'" );
-			} else if( functionName == "operator->" ) {
+			} else if( val == "->" ) {
 				ss << "((";
 				children.at(0)->translateItem( ss, translatePath, indent, false );
 				ss << ").";
 				children.at(1)->translateItem( ss, translatePath, indent, false );
 				ss << ")";
 			} else {
-				if( functionName == "operator-u" )
-					functionName = "operator-";
-				else if( functionName == "operator<->" )
-					functionName = "std::swap";
-				else if( functionName == "operator?" )
-					functionName = "shuffle";
-				else if( functionName == "operator\\" )
-					functionName = "contains";
-				else if( functionName == "operator#" )
-					functionName = "size_of";
-				else if( functionName == "operator:" ) {
+				string functionName;
+				if( val == ":" ) {
 					functionName = "t_range<";
 					AST* type = children.at(0)->getType( translatePath );
 					functionName += type->decodeTypename( translatePath ) + ">";
 					delete type->cascade();
-				} else if( functionName == "operator@" )
+				} else if( val == "@" )
 					functionName = "at";
+				else if( val.at(0) == '@' )
+					functionName = val.substr( 1 );
+				else 
+					functionName = findFunctionName( val, translatePath ); // this ruins function overloading
+				if( functionName == "" )
+					throw translate_exception( "Unknown function " + val );
+
 				ss << functionName << "( ";
 				for( AST* argument : children ) {
 					if( comma )
@@ -419,12 +411,19 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 }
 
 AST* AST::getType( const TranslatePath& translatePath ) const {
+	AST* x;
 	switch( type ) {
-		case AT_WORD: 
-			return findVariableType( val, translatePath );
+		case AT_WORD:
+			x = findVariableType( val, translatePath );
+			/*if( x == nullptr ) // TO BE ENABLED
+				throw translate_exception( "Unknown variable" );*/
+			return x;
 			break;
 		case AT_FUNCTIONCALL:
-			return findFunctionType( val, translatePath );
+			x = findFunctionType( val, translatePath );
+			/*if( x == nullptr ) // TO BE ENABLED
+				throw translate_exception( "Unknown function" );*/
+			return x;
 			break;
 		case AT_NUMBER: 
 			return new AST( AT_DATATYPE, val.find('.') == string::npos ? "int": "float" , {} );

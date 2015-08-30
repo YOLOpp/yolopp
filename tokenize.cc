@@ -1,179 +1,143 @@
 #include <set>
+#include <cassert>
 #include "ast.h"
 
 const map<string, string> operator_synonyms {
+	{"or","\u2228"},
+	{"and","\u2227"},
+	{"xor","\u22BB"},
+	{"not","\u00AC"},
 	{"at","@"},
 	{"shuffle","?"},
 	{"sort","!"},
 	{"sizeof","#"},
 	{"swap","<->"},
-	{"contains","\\"},	// these symbols are temporary, to be replaced with unicode
-	{"as","~"}			//
+	{"contains","\u220A"},
+	{"as","~"} // temp
 };
+
+void Tokens::tokenizeString( const string& s, int& i, int n ) {
+	assert( s[i] == '"' );
+	int j = i++;
+	bool escape = false;
+
+	while( i < n ) {
+		if( escape )
+			escape = false;
+		else if( s[i] == '"' ) {
+			emplace_back( STRING, "u8" + s.substr( j, (++i)-j ) );
+			return;
+		} else if( s[i] == '\\' )
+			escape = true;
+		i++;
+	}
+	throw compile_exception( "Expected end of string", j );
+}
+
+void Tokens::tokenizeNumber( const string& s, int& i, int n ) {
+	assert( isdigit( s[i] ) || s[i] == '.' );
+	bool real = false;
+	bool dot = false;
+	int j = i;
+
+	if( s[i] == '.' && ( i+1 == n || !isdigit( s[i+1] ) ) )
+		tokenizeOperator( s, i, n );
+	else {
+		while( i < n ) {
+			if( s[i] == '.' ) {
+				if( real ) {
+					dot = true;
+					break;
+				} else if( i+1 == n || !isalpha( s[i+1] ) )
+					real = true;
+				else {
+					dot = true;
+					break;
+				}
+			} else if( !isdigit( s[i] ) )
+				break;
+			i++;
+		}
+		if( dot )
+			tokenizeOperator( s, i, n );
+		emplace_back( real?FLOAT:INTEGER, s.substr( j, i-j-dot ) );
+	}
+}
+
+bool isNonfirstWordSymbol( char c ) {
+	return isalpha(c) || c == '_' || isdigit(c);
+}
+
+void Tokens::tokenizeWord( const string& s, int& i, int n ) {
+	assert( isalpha( s[i] ) );
+	int j = i;
+	string w;
+	token_type t = VARIABLE;
+	map<string,string>::const_iterator x;
+
+	while( i < n && isNonfirstWordSymbol( s[i] ) ) i++;
+	w = s.substr( j, i-j );
+	if( keywords.count( w ) )
+		t = KEYWORD;
+	else if( ( x = operator_synonyms.find( w ) ) != operator_synonyms.end() ) {
+		t = OPERATOR;
+		w = x->second;
+	} else if( finalTypenames.find( w ) != finalTypenames.end() || nonFinalTypenames.find( w ) != nonFinalTypenames.end() )
+		t = TYPENAME;
+	emplace_back( t, w );
+}
+
+constexpr bool isBracket( char c ) {
+	return c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}';
+}
+
+void Tokens::tokenizeBracket( const string& s, int& i, int n ) {
+	assert( isBracket( s[i] ) );
+
+	char c = s.at(i++);
+	c += (c == ')'); 
+	bool isLeft = (c == '(' || c == '[' || c == '{');
+	if( c == '(' && size() > 0 && back().type == VARIABLE )
+		back().type = FUNCTION;
+	emplace_back( isLeft?LEFT_BRACKET:RIGHT_BRACKET, string(1,c-2*(1-isLeft)));
+}
+
+void Tokens::tokenizeOperator( const string& s, int& i, int n ) {
+	if( s[i] == ',' ) {
+		i++;
+		emplace_back( COMMA, "," );
+	} else {
+		for( int k = min(4,n-i); k > 0; k-- ) {
+			auto x = operator_precedence.find( s.substr(i,k) );
+			if( x != operator_precedence.end() ) {
+				if( x->first == "-" && ( size() == 0 || !( back().type == RIGHT_BRACKET || back().type == VARIABLE || back().type == FLOAT || back().type == INTEGER || back().type == STRING ) ) )
+					emplace_back( OPERATOR, "-u" ); // unary minus
+				else
+					emplace_back( OPERATOR, x->first );
+				i += k;
+				return;
+			}
+		}
+		throw compile_exception( "Not an operator", i );
+	}
+}
 
 Tokens::Tokens( const string& s ) {
 	int n = s.size();
-	enum { MODE_NONE, MODE_INT, MODE_FLOAT, MODE_STRING, MODE_NAME } mode = MODE_NONE;
-	bool terminate = false;
-	bool escape = false;
-	Token t, u;
+	int i = 0;
 
-	for( int i = 0; i < n; i++ ) {
-		if( mode == MODE_NONE ) {
-			if( isalpha( s[i] ) )
-				mode = MODE_NAME;
-			else if( isdigit( s[i] ) )
-				mode = MODE_INT;
-			else if( s[i] == '.' )
-				mode = MODE_FLOAT;
-			else if( s[i] == '"' )
-				mode = MODE_STRING;
-		}
-		if( mode == MODE_STRING ) { // inside string
-			if( s[i] == '"' && !t.empty() && !escape ) {
-				t.type = STRING;
-				t.push_back( s[i] );
-				push_back(t);
-				mode = MODE_NONE;
-				t.clear();
-			} else if( s[i] == '\\' && !escape ) {
-				escape = true;
-			} else {
-				if( escape ) {
-					escape = false;
-					t.push_back( '\\' );
-				}
-				t.push_back( s[i] );
-			}
-		} else {
-			if( !isspace( s[i] ) ) {
-				terminate = true;
-				if( s[i] == '-' ) { // minus
-					u.push_back( '-' ); 
-					if( i+1<n && s[i+1] == '>' ) { // -> operator
-						u.push_back( '>' );
-						i++;
-					} else if( !( back().type == RIGHT_BRACKET || back().type == VARIABLE || back().type == FLOAT || back().type == INTEGER || back().type == STRING ) ) // unary minus
-						u.push_back( 'u' ); 
-					u.type = OPERATOR;
-				} else if( s[i] == '<' ) {
-					if( i + 2 < n && s[i+2] == '>' && ( s[i+1] == '-' || s[i+1] == '~' ) ) { // swap operator
-						u.push_back( s[i] );
-						u.push_back( s[i+1] );
-						u.push_back( s[i+2] );
-						u.type = OPERATOR;
-						i += 2;
-					} else { // less-than
-						u.push_back( '<' );
-						if( i + 1 < n && s[i+1] == '=' ) { // at most
-							u.push_back( '=' );
-							i++;
-						} else if( i + 1 < n && s[i+1] == '>' ) { // not equal to
-							u.push_back( '>' );
-							i++;
-						}
-						u.type = OPERATOR;
-					}
-				} else if( s[i] == '|' || s[i] == '&' || s[i] == '^' || s[i] == '=' ) { // logical operators
-					u.push_back( s[i] );
-					u.type = OPERATOR;
-					if( i + 1 < n && s[i] == s[i+1] ) {
-						u.push_back( s[i] );
-						i++;
-					} else if( s[i] != '=' )
-						throw compile_exception( "Invalid operator '" + string( 1, s[i] ) + "'", i );
-				} else if( s[i] == '>' ) {
-					u.push_back( s[i] );
-					u.type = OPERATOR;
-					if( i + 1 < n && s[i] == '=' ) {
-						u.push_back( '=' );
-						i++;
-					}
-				} else if( s[i] == '{' || s[i] == '[' || s[i] == '(' ) { // opening brackets
-					u.push_back( s[i] );
-					u.type = LEFT_BRACKET;
-				} else if( s[i] == '}' || s[i] == ']' || s[i] == ')' /*|| s[i] == '>'*/ ) { // closing brackets
-					if( s[i] == '}' )
-						u.push_back( '{' );
-					else if( s[i] == ']' )
-						u.push_back( '[' );
-					else if( s[i] == ')')
-						u.push_back( '(' );
-					/*else
-						u.push_back( '<' );*/
-					u.type = RIGHT_BRACKET;
-				} else if( s[i] == ',' ) { // argument seperator
-					u.push_back( ',' );
-					u.type = COMMA;
-				} else if( s[i] == '.' ) { // float or dot operator
-					if( mode == MODE_INT && i+1<n && !isalpha( s[i+1] ) ) {
-						mode = MODE_FLOAT;
-						t.push_back( s[i] );
-						terminate = false;
-					} else if( mode == MODE_FLOAT && t.empty() ) {
-						if( i+1<n && !isdigit( s[i+1] ) ) {
-							u.push_back('.');
-							u.type = OPERATOR;
-							mode = MODE_NONE;
-						} else {
-							t.push_back( s[i] );
-							terminate = false;
-						}
-					} else {
-						u.push_back('.');
-						u.type = OPERATOR;
-					}
-				} else if( operator_precedence.find( string( 1, s[i] ) ) != operator_precedence.end() ) { // single-character operator
-					u.push_back( s[i] );
-					u.type = OPERATOR;
-				} else if( !isdigit( s[i] ) && ( mode == MODE_INT || mode == MODE_FLOAT ) ) // filter letters from numbers
-					throw compile_exception( "Unexpected '" + string( 1, s[i] ) + "' in number", i );
-				else {
-					t.push_back( s[i] );
-					terminate = false;
-				}
-			}
-			if( isspace( s[i] ) || terminate ) { // termination
-				if( mode == MODE_NAME ) {
-					if( keywords.find( string(t) ) != keywords.end() )
-						t.type = KEYWORD;
-					else if( finalTypenames.find( string(t) ) != finalTypenames.end() || nonFinalTypenames.find( string(t) ) != nonFinalTypenames.end() )
-						t.type = TYPENAME;
-					else if( operator_synonyms.find( string(t) ) != operator_synonyms.end() ) {
-						t.type = OPERATOR;
-						t.str() = operator_synonyms.at( t.str() );
-					} else
-						t.type = VARIABLE;
-				} else if( mode == MODE_FLOAT )
-					t.type = FLOAT;
-				else if( mode == MODE_INT )
-					t.type = INTEGER;
-				if( mode != MODE_NONE ) {
-					push_back( t );
-					mode = MODE_NONE;
-					t.clear();
-				}
-			}
-			if( terminate ) {
-				if( size() > 0 && back().type == VARIABLE && u.type == LEFT_BRACKET )
-					back().type = FUNCTION;
-				push_back( u );
-				u.clear();
-				terminate = false;
-			}
-		}
-	}
-	if( !t.empty() ) {
-		if( mode == MODE_INT )
-			t.type = INTEGER;
-		else if( mode == MODE_FLOAT )
-			t.type = FLOAT;
-		else if( mode == MODE_NAME )
-			t.type = VARIABLE;
-		else if( mode == MODE_STRING )
-			throw compile_exception( "Missing closing-'\"'", n );
+	while( i < n ) {
+		if( isspace( s[i] ) )
+			i++;
+		else if( s[i] == '"' )
+			tokenizeString( s, i, n );
+		else if( isdigit( s[i] ) || s[i] == '.' )
+			tokenizeNumber( s, i, n );
+		else if( isalpha( s[i] ) )
+			tokenizeWord( s, i, n );
+		else if( isBracket( s[i] ) )
+			tokenizeBracket( s, i, n );
 		else
-			throw compile_exception( "Unexpected tokenize mode", n );
-		push_back( t );
+			tokenizeOperator( s, i, n );
 	}
 }

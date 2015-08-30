@@ -18,6 +18,12 @@
 #define t_set std::set
 #define t_tuple std::tuple
 
+#define v_true true
+#define v_false false
+#define yor(x,y) ((x)||(y))
+#define yand(x,y) ((x)&&(y))
+#define yxor(x,y) ((x)^(y))
+#define ynot(x) (!(x))
 
 typedef std::string t_string;
 typedef mpz_class t_int;
@@ -231,13 +237,13 @@ template<typename T> t_list<T> shuffle( t_list<T>&& m ) {
 }
 
 // TODO: add inplace sort (not return a copy)
-template<typename T> t_list<T> operator!( t_list<T>& m ) {
+template<typename T> t_list<T> sort( t_list<T>& m ) {
 	t_list<T> l( m );
 	std::sort( l.begin(), l.end() );
 	return l;
 }
 
-template<typename T> t_list<T> operator!( t_list<T>&& m ) {
+template<typename T> t_list<T> sort( t_list<T>&& m ) {
 	t_list<T> l( std::move( m ) );
 	std::sort( l.begin(), l.end() );
 	return l;
@@ -366,6 +372,12 @@ template<> struct cast_helper<t_string> {
 	}
 	static t_string cast_f( const t_string& o ) {
 		return o;
+	}
+	static t_string cast_f( bool o ) {
+		if( o )
+			return "true";
+		else
+			return "false";
 	}
 	template<typename U> static t_string cast_f( const t_list<U>& o ) {
 		t_string x = "[";

@@ -1,0 +1,7 @@
+bool x = true,
+bool y = false,
+
+print( ( x or y ) as string + "\n" ),
+print( ( x and y ) as string + "\n" ),
+print( ( x xor y ) as string + "\n" ),
+print( ( not x ) as string + "\n" )

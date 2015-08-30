@@ -70,6 +70,9 @@ struct Token : public string {
 	token_type type;
 	string& str() { return *this; }
 	const string& str() const { return *this; }
+	Token() {}
+	Token( token_type t, string&& s ) : string( s ), type(t) {}
+	Token( token_type t, const string& s ) : string( s ), type(t) {}
 };
 
 class Tokens : public vector<Token> {
@@ -77,6 +80,11 @@ public:
 	Tokens(const string&);
 	Tokens()=default;
 private:
+	void tokenizeString( const string& s, int& i, int n );
+	void tokenizeNumber( const string& s, int& i, int n );
+	void tokenizeWord( const string& s, int& i, int n );
+	void tokenizeBracket( const string& s, int& i, int n );
+	void tokenizeOperator( const string& s, int& i, int n );
 	bool isTypename( int i, const set<string>& typenames, bool tuples = true ) const;
 	bool isBlock( int i ) const;
 	bool isKeyword( int i ) const;

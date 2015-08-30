@@ -1,5 +1,29 @@
 #include "ast.h"
 
+const map<string,string> operator_function_name {
+	{"!","sort"},
+	{"?","shuffle"},
+	{"#","size_of"},
+	{"\u220A","contains"},
+	{"<->","std::swap"},
+	{"^","pow"}, // temp
+	{"-u","operator-"},
+	{"*","operator*"},
+	{"/","operator/"},
+	{"\u00AC","ynot"},
+	{"+","operator+"},
+	{"-","operator-"},
+	{"<","operator<"},
+	{">","operator>"},
+	{"<=","operator<="},
+	{">=","operator>="},
+	{"==","operator=="},
+	{"<>","operator!="},
+	{"\u2227","yand"},
+	{"\u22BB","yxor"},
+	{"\u2228","yor"}
+};
+
 Tokens Tokens::shuntingYard( int i, int n ) const {
 	stack<Token> operator_stack;
 	stack<int> comma_stack;
@@ -111,10 +135,10 @@ AST* Tokens::postfixTranslate( int& n ) const {
 				parameters = 1;
 			else
 				parameters = 2;
-			if( at(n) == "~" )
-				h->val = "@static_cast";
+			if( operator_function_name.count(at(n)) )
+				h->val = "@" + operator_function_name.at(at(n));
 			else
-				h->val = "@operator" + at(n); // temporary
+				h->val = at(n);
 			h->type = AT_FUNCTIONCALL;
 			break;
 		case FUNCTION: {
