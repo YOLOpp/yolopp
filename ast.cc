@@ -15,7 +15,7 @@ const set<string> finalTypenames {
 	"int",
 	"string", 
 	"rat",
-	"float",
+	"real",
 	"bool"
 };
 
@@ -43,9 +43,12 @@ const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{"<",make_tuple(13,LEFT,false)},	// less-than
 	{">",make_tuple(13,LEFT,false)},	// more-than
 	{"<=",make_tuple(13,LEFT,false)},	// at most
+	{"≤",make_tuple(13,LEFT,false)},	// at most
 	{">=",make_tuple(13,LEFT,false)},	// at least
+	{"≥",make_tuple(13,LEFT,false)},	// at least
 	{"==",make_tuple(14,LEFT,false)},	// equal to
-	{"<>",make_tuple(14,LEFT,false)},	// less-than or more-than ( not equal to )
+	{"!=",make_tuple(14,LEFT,false)},	// less-than or more-than ( not equal to )
+	{"\u2260",make_tuple(14,LEFT,false)},	// less-than or more-than ( not equal to )
 	{"\u2227",make_tuple(15,LEFT,false)},	// and
 	{"\u22BB",make_tuple(16,LEFT,false)},	// xor
 	{"\u2228",make_tuple(17,LEFT,false)},	// or

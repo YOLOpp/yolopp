@@ -55,6 +55,21 @@ int Tokens::commaIterator( int i, int n ) const { // i not on comma, n on arbitr
 	return n;
 } // return at comma, or at bracket for error
 
+int Tokens::elseIterator( int i, int n ) const { // i on starting point, n on next comma
+	int brackets = 0;
+	while( --n >= i ) {
+		if( at(n).type == LEFT_BRACKET )
+			brackets--;
+		else if( at(n).type == RIGHT_BRACKET ) {
+			brackets++;
+			if( brackets < 0 )
+				return -1;
+		} else if( at(n).type == KEYWORD && at(n).str() == "else" && brackets == 0 )
+			return n;
+	}
+	return -1;
+} // return at else, or -1 for no else
+
 int Tokens::resolveTypename( AST*& typename_result, int i, int n, const set<string>& typenames ) const {
 	bool isFinal = false;
 	typename_result = new AST( AT_DATATYPE );
@@ -207,12 +222,14 @@ AST* Tokens::pseudoBlock( int& k, int i, int n, const set<string>& typenames, bo
 }
 
 void Tokens::keywordTranslate( vector<AST*>& block, int i, int n, const set<string>& typenames ) const {
-	if( at(i).str() == "return" ) {
+	if( at(i).str() == "else" )
+		throw compile_exception( "Unexpected else-statement", i );
+	else if( at(i).str() == "return" ) {
 		block.push_back( new AST( AT_FLOW, "return", { statementTranslate( i+1, n ) } ) );
 	} else {
 		string keyword = at(i);
 		AST *condition, *container, *effect;
-		int k;
+		int k, l = -1;
 
 		if( at(i+1).str() != "(" )
 			throw compile_exception( "Expected (-bracket", i+1 );
@@ -229,19 +246,26 @@ void Tokens::keywordTranslate( vector<AST*>& block, int i, int n, const set<stri
 		}
 		condition = statementTranslate( i, j );
 
-		effect = pseudoBlock( k, j+1, n, typenames );
+		if( keyword == "if" )
+			l = elseIterator( j+1, n );
+		if( l == -1 )
+			effect = pseudoBlock( k, j+1, n, typenames, true );
+		else
+			effect = pseudoBlock( k, j+1, l, typenames, true );
 
 		if( keyword == "for" )
 			block.push_back( new AST( keyword == "if" ? AT_CONDITIONAL : AT_LOOP, keyword, { container, condition, effect } ) );
 		else
 			block.push_back( new AST( keyword == "if" ? AT_CONDITIONAL : AT_LOOP, keyword, { condition, effect } ) );
-		if( keyword == "if" && k+1<n && at(k+1).str() == "else" )
-			block.back()->children.push_back( pseudoBlock( i, k+2, n, typenames ) );
+		if( keyword == "if" && l != -1 )
+			block.back()->children.push_back( pseudoBlock( i, l+1, n, typenames, true ) );
 	}
 }
 
 void Tokens::segmentTranslate( vector<AST*>& block, int i, int n, const set<string>& typenames ) const {
-	if( isTypename( i, typenames ) )
+	if( i+1 >= n ) 
+		block.push_back( new AST( AT_SYNCBLOCK ) );
+	else if( isTypename( i, typenames ) )
 		variableTranslate( block, i, n, typenames );
 	else if( isBlock( i ) )
 		block.push_back( encapsulateBlock( blockTranslate( i+1, n-1, typenames ), at(i) ) );

@@ -1,0 +1,32 @@
+if( true )
+	if( true )
+		print( "a" ),
+
+if( true )
+	if( true )
+		print( "a" )
+else
+	print( "b" ),
+
+if( false )
+	if( true )
+		print( "a" )
+else
+	print( "b" ),
+
+
+if( true )
+	if( false )
+		print( "a" )
+	else
+		print( "b" )
+else
+	print( "c" ),
+
+if( false )
+	if( false )
+		print( "a" )
+	else
+		print( "b" )
+else
+	print( "c" ),

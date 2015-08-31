@@ -11,6 +11,7 @@
 #include <initializer_list>
 #include <tuple>
 #include <utility>
+#include <sstream>
 
 // typedef mpz_class t_int;
 
@@ -28,9 +29,9 @@
 typedef std::string t_string;
 typedef mpz_class t_int;
 typedef mpq_class t_rat;
-typedef mpf_class t_float;
+typedef mpf_class t_real;
 typedef bool t_bool;
-struct t_null {};
+struct t_null { template<typename T> t_null& operator=( const T& ) { return *this; } };
 
 #define v_null (t_null())
 
@@ -222,6 +223,8 @@ template<typename T> struct t_frame {
 
 void f_0_print( t_string s );
 t_string f_0_input(void);
+t_tuple<t_bool,t_int> f_0_parseInt( const t_string& s, t_int base = 10 );
+t_tuple<t_bool,t_real> f_0_parseReal( const t_string& s, t_int base = 10 );
 
 // TODO: add inplace shuffle (not return a copy)
 template<typename T> t_list<T> shuffle( t_list<T>& m ) {
@@ -327,7 +330,7 @@ template<typename T> struct cast_helper {
 	static T cast( const t_rat& o ) {
 		return static_cast<T>( o );
 	}
-	static T cast( const t_float& o ) {
+	static T cast( const t_real& o ) {
 		return static_cast<T>( o );
 	}*/
 };
@@ -336,11 +339,11 @@ template<> struct cast_helper<size_t> {
 	static size_t cast_f( const t_int& o ) {
 		return o.get_ui();
 	}
-	static size_t cast_f( const t_float& o ) {
+	static size_t cast_f( const t_real& o ) {
 		return cast<size_t>( cast<t_int>( o ) );
 	}
 	static size_t cast_f( const t_rat& o ) {
-		return cast<size_t>( cast<t_float>( o ) );
+		return cast<size_t>( cast<t_real>( o ) );
 	}
 };
 
@@ -365,10 +368,10 @@ template<> struct cast_helper<t_string> {
 	static t_string cast_f( const t_rat& o ) {
 		return o.get_str();
 	}
-	static t_string cast_f( const t_float& o ) {
-		mp_exp_t e;
-		t_string s = o.get_str( e );
-		return "0." + s + "*10^" + std::to_string(e);
+	static t_string cast_f( const t_real& o ) {
+		std::stringstream ss( std::ios::out );
+		ss << o;
+		return ss.str();
 	}
 	static t_string cast_f( const t_string& o ) {
 		return o;

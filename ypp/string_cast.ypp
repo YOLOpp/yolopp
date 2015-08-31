@@ -1,0 +1,26 @@
+string a = "5",
+string b = "3.14",
+int x,
+real y,
+bool succes,
+
+(succes, x) = parseInt( a ),
+if( ¬succes )
+	print( "parseInt error!\n" ),
+
+(succes, y) = parseReal( b ),
+if( ¬succes )
+	print( "parseReal error!\n" ),
+
+print( x as string + "\n" ),
+print( y as string + "\n" ),
+
+if( a == (x as string) )
+	print( "Equal\n" )
+else
+	print( "Different\n" ),
+
+if( b == (y as string) )
+	print( "Equal\n" )
+else
+	print( "Different\n" )

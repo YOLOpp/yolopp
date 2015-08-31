@@ -16,9 +16,12 @@ const map<string,string> operator_function_name {
 	{"<","operator<"},
 	{">","operator>"},
 	{"<=","operator<="},
+	{"\u2264","operator<="},
 	{">=","operator>="},
+	{"\u2265","operator>="},
 	{"==","operator=="},
-	{"<>","operator!="},
+	{"!=","operator!="},
+	{"\u2260","operator!="},
 	{"\u2227","yand"},
 	{"\u22BB","yxor"},
 	{"\u2228","yor"}

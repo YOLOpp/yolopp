@@ -7,7 +7,7 @@
 #include <fstream>
 #include <map>
 
-set<string> builtinFunctionNames = { "print", "input", "push", "pop", "insert", "remove" };
+set<string> builtinFunctionNames = { "print", "input", "push", "pop", "insert", "remove", "parseInt", "parseReal" };
 
 string AST::translate() const {
 	stringstream ss;
@@ -353,7 +353,7 @@ void AST::translateItem( stringstream& ss, TranslatePath& translatePath, int ind
 			if( val.find('.') == string::npos )
 				ss << "t_int";
 			else
-				ss << "t_float";
+				ss << "t_real";
 			ss << "(" << val << ")"; //temp
 		break;
 		case AT_STRING:
@@ -426,7 +426,7 @@ AST* AST::getType( const TranslatePath& translatePath ) const {
 			return x;
 			break;
 		case AT_NUMBER: 
-			return new AST( AT_DATATYPE, val.find('.') == string::npos ? "int": "float" , {} );
+			return new AST( AT_DATATYPE, val.find('.') == string::npos ? "int": "real" , {} );
 			break;
 		case AT_STRING:
 			return new AST( AT_DATATYPE, "string", {} );

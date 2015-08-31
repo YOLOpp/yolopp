@@ -1,0 +1,11 @@
+null = 5,
+null = "YOLO",
+
+function (int, int, int) f() return (1, 2, 3),
+
+int x = 5,
+int y = 6,
+
+(x,y,null) = f(),
+
+print( (x as string) + " " + (y as string) + "\n" )

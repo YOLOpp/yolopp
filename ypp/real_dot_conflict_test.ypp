@@ -2,8 +2,8 @@ function string type( int x ) [
 	return "Integer " + (x as string)
 ],
 
-function string type( float x ) [
-	return "Float " + (x as string)
+function string type( real x ) [
+	return "Real " + (x as string)
 ],
 
 print( 5.type() as string + "\n" ),

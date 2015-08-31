@@ -61,6 +61,7 @@ int main(int argc,char **argv){
 	srcf.close();
 
 	Tokens tokens( source );
+	//for( auto& t : tokens ) std::cerr << t.type << ";" << t.str() << "|";
 	AST tree( tokens );
 	string trans=tree.translate();
 	outf.write(trans.data(),trans.size());

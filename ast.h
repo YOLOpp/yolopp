@@ -91,6 +91,7 @@ private:
 	bool isVariable( int i, const set<string>& typenames ) const;
 	int bracketIterator( int i, int n ) const;
 	int commaIterator( int i, int n ) const;
+	int elseIterator( int i, int n ) const;
 	int resolveTypename( AST*& typename_result, int i, int n, const set<string>& typenames ) const;
 	AST* getNamedTuple( int& i, int k, const set<string>& typenames ) const;
 	AST* statementTranslate( int i, int n ) const;
