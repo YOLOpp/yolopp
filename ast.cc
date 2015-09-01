@@ -55,6 +55,39 @@ const map< string, tuple< int, associativity, bool > > operator_precedence {
 	{"=",make_tuple(18,RIGHT,false)}	// asignment
 };
 
+const set<string> overloadable_operators {
+	"!", "?", "#",
+	"-","+","*","/","^",
+	"<"
+};
+
+const map<string,string> operator_function_name {
+	{"!","sort"},
+	{"?","shuffle"},
+	{"#","size_of"},
+	{"\u220A","contains"},
+	{"<->","std::swap"},
+	{"^","pow"}, // temp
+	{"-u","operator-"},
+	{"*","operator*"},
+	{"/","operator/"},
+	{"\u00AC","ynot"},
+	{"+","operator+"},
+	{"-","operator-"},
+	{"<","operator<"},
+	{">","operator>"},
+	{"<=","operator<="},
+	{"\u2264","operator<="},
+	{">=","operator>="},
+	{"\u2265","operator>="},
+	{"==","operator=="},
+	{"!=","operator!="},
+	{"\u2260","operator!="},
+	{"\u2227","yand"},
+	{"\u22BB","yxor"},
+	{"\u2228","yor"}
+};
+
 const set<string> keywords {
 	"import",
 	"space",

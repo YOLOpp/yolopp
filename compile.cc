@@ -172,9 +172,15 @@ void Tokens::functionTranslate( vector<AST*>& block, int i, int n, const set<str
 
 	i = resolveTypename( returnType, i+1, n, typenames );
 
-	if( at(i).type != FUNCTION )
+	if( at(i).type == OPERATOR ) {
+		functionName = "@" + operator_function_name.at(at(i).str());
+		if( !overloadable_operators.count( at(i) ) )
+			throw compile_exception( "Can't overload this operator", i );
+	} else if( at(i).type == FUNCTION )
+		functionName = at(i).str();
+	else
 		throw compile_exception( "Expected function name", i );
-	functionName = at(i).str();
+		
 	i += 1;
 
 	parameters = getNamedTuple( i, n, typenames );

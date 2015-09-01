@@ -1,0 +1,13 @@
+space weird ( int a, string b ),
+
+function bool <( weird x, weird y ) 
+	return x->a < y->a,
+
+weird x = ( 0, "YOLO" ),
+weird y = ( 1, "swag" ),
+weird z = ( 0, "swag" ),
+
+print( ( x < y ) as string + "\n" ),
+print( ( x < z ) as string + "\n" ),
+print( ( x == z ) as string + "\n" ),
+print( ( y <= z ) as string + "\n" ),

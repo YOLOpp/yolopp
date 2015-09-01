@@ -66,7 +66,10 @@ bool AST::isSpace() const {
 void AST::printFunctionHeader( stringstream& ss, string x, const TranslatePath& translatePath ) const {
 	assert( type == AT_FUNCTIONDEF );
 	ss << children.at(0)->decodeTypename( translatePath );
-	ss << " f_" << x << "_" << val << "( ";
+	if( val.at(0) == '@' )
+		ss << " " << val.substr( 1 ) << "( ";
+	else
+		ss << " f_" << x << "_" << val << "( ";
 	bool comma = false;
 	for( AST* argument : children.at(1)->children ) {
 		if( comma )
@@ -78,6 +81,25 @@ void AST::printFunctionHeader( stringstream& ss, string x, const TranslatePath& 
 	ss << " )";
 }
 
+void AST::inducedFunctions( stringstream& ss, const string& f, const TranslatePath& translatePath ) {
+	assert( type == AT_ARRAY );
+	if( f == "@operator<" ) {
+		ss << "t_bool operator>( " << children.at(1)->children.at(0)->decodeTypename( translatePath ) << " y, " 
+			<< children.at(0)->children.at(0)->decodeTypename( translatePath ) << " x ) { return x < y; }\n";
+		ss << "t_bool operator<=( " << children.at(0)->children.at(0)->decodeTypename( translatePath ) << " x, " 
+			<< children.at(0)->children.at(0)->decodeTypename( translatePath ) << " y ) { return !(y < x); }\n";
+		ss << "t_bool operator>=( " << children.at(0)->children.at(0)->decodeTypename( translatePath ) << " x, " 
+			<< children.at(0)->children.at(0)->decodeTypename( translatePath ) << " y ) { return !(x < y); }\n";
+		ss << "t_bool operator!=( " << children.at(0)->children.at(0)->decodeTypename( translatePath ) << " x, " 
+			<< children.at(0)->children.at(0)->decodeTypename( translatePath ) << " y ) { return (x<y)&&(y<x); }\n";
+		ss << "t_bool operator==( " << children.at(0)->children.at(0)->decodeTypename( translatePath ) << " x, " 
+			<< children.at(0)->children.at(0)->decodeTypename( translatePath ) << " y ) { return (!(x<y))&&(!(y<x)); }\n";
+	} else if( f == "@operator==" ) {
+		ss << "t_bool operator!=( " << children.at(0)->children.at(0)->decodeTypename( translatePath ) << " x, " 
+			<< children.at(0)->children.at(0)->decodeTypename( translatePath ) << " y ) { return !(x==y); }\n";
+	}
+}
+
 void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) const {
 	assert( type == AT_SYNCBLOCK || type == AT_ASYNCBLOCK );
 	translatePath.push( this );
@@ -85,6 +107,7 @@ void AST::pullFunctions( stringstream& ss, TranslatePath& translatePath ) const 
 		if( node->type == AT_FUNCTIONDEF ) {
 			node->printFunctionHeader( ss, val, translatePath );
 			ss << ";" << endl;
+			node->children.at(1)->inducedFunctions( ss, node->val, translatePath );
 			node->children.at(2)->pullFunctions( ss, translatePath );
 		} else if( node->type == AT_SYNCBLOCK || node->type == AT_ASYNCBLOCK )
 			node->pullFunctions( ss, translatePath );

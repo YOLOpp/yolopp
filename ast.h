@@ -63,6 +63,8 @@ extern const map< string, tuple< int, associativity, bool > > operator_precedenc
 extern const set<string> keywords;
 extern const set<string> nonFinalTypenames;
 extern const set<string> finalTypenames;
+extern const set<string> overloadable_operators;
+extern const map<string,string> operator_function_name;
 
 ostream& operator<<( ostream& os, const AST& ast );
 
@@ -125,6 +127,7 @@ public:
 	void translateItem( stringstream& ss, TranslatePath&, int indent, bool allow_block = true ) const;
 	void printFunctionHeader( stringstream& ss, string x, const TranslatePath& translatePath ) const;
 	void pullFunctions( stringstream& ss, TranslatePath& translatePath ) const;
+	void inducedFunctions( stringstream& ss, const string& f, const TranslatePath& translatePath );
 	void pullSpaces( stringstream& ss, TranslatePath& translatePath, SpaceReference& spaceReference ) const;
 	string decodeTypename( const TranslatePath& ) const;
 	bool compare( const AST* other ) const;
